@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_l10n_ar_import_arca_wizard_form" model="ir.ui.view">
+        <field name="name">l10n_ar.arca.import.wizard.form</field>
+        <field name="model">l10n_ar.arca.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Importar Comprobantes ARCA">
+                <header>
+                    <button name="action_analyze" string="Analizar Excel" type="object" class="btn-primary" invisible="state != 'upload'"/>
+                    <button name="action_import" string="Confirmar Importación" type="object" class="btn-primary" invisible="state != 'review'"/>
+                    <button name="action_back" string="Volver" type="object" class="btn-secondary" invisible="state != 'review'"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel" invisible="state == 'review'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="upload,review,done"/>
+                </header>
+                <sheet>
+                    <group invisible="state != 'upload'">
+                        <group>
+                            <field name="import_type" widget="radio"/>
+                            <field name="file_data" filename="filename"/>
+                            <field name="filename" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="default_journal_id" options="{'no_create': True}"/>
+                        </group>
+                    </group>
+                    
+                    <div invisible="state != 'review'">
+                        <div class="alert alert-info" role="alert">
+                            Revise los datos a continuación. Las líneas en <b style="color:red">Rojo</b> tienen errores bloqueantes. Las líneas en <b style="color:grey">Gris</b> ya existen. Solo se importarán las líneas en <b style="color:green">Verde (Listo)</b>.
+                        </div>
+                    </div>
+                    
+                    <notebook invisible="state != 'review'">
+                        <page string="Comprobantes Detectados">
+                            <field name="line_ids">
+                                <list create="0" edit="0" decoration-danger="status == 'error'" decoration-muted="status == 'exists'" decoration-success="status == 'ready'">
+                                    <field name="date"/>
+                                    <field name="document_type_name"/>
+                                    <field name="point_of_sale"/>
+                                    <field name="number"/>
+                                    <field name="cuit"/>
+                                    <field name="partner_name"/>
+                                    <field name="amount_total"/>
+                                    <field name="status" widget="badge"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>
