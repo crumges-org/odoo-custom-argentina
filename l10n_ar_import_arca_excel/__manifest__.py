@@ -43,6 +43,7 @@ Este módulo es mantenido por Crumges.
         'mail',
         'l10n_ar',
     ],
+    'external_dependencies': {'python': ['openpyxl']},
     'data': [
         'security/ir.model.access.csv',
         'views/import_line_view.xml',

@@ -85,6 +85,9 @@ class L10nArImportArcaWizard(models.TransientModel):
         self.ensure_one()
         if not self.file_data:
             raise UserError(_("Por favor suba un archivo."))
+            
+        if 'openpyxl' not in globals():
+            raise UserError(_("La librería 'openpyxl' no está instalada. Por favor contacte al administrador."))
 
         wb = openpyxl.load_workbook(io.BytesIO(base64.b64decode(self.file_data)), data_only=True)
         ws = wb.active # Asumimos primera hoja
@@ -337,12 +340,12 @@ class L10nArImportArcaWizard(models.TransientModel):
                       tax_ex = self.env['account.tax'].search([
                             ('type_tax_use', '=', type_tax_use),
                             ('amount', '=', 0.0),
-                            ('is_exempt', '=', True), # V18 field maybe? Or check description/group
+                            ('name', 'ilike', 'Exento'),
                             ('active', '=', True)
                         ], limit=1)
                       # Fallback generic 0
                       if not tax_ex:
-                           tax_ex = self.env['account.tax'].search([('type_tax_use', '=', type_tax_use), ('amount', '=', 0.0)], limit=1)
+                           tax_ex = self.env['account.tax'].search([('type_tax_use', '=', type_tax_use), ('amount', '=', 0.0), ('active', '=', True)], limit=1)
                       
                       invoice_lines_data.append({
                         'price_unit': amount_ex,
