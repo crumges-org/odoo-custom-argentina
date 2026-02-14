@@ -34,6 +34,10 @@ class L10nArArcaImportLine(models.TransientModel):
     
     # Data Dump para creación posterior
     invoice_values = fields.Text(string='Valores JSON')
+    
+    to_import = fields.Boolean(string='Importar', default=False)
+    
+    preview_desc = fields.Char(string='Vista Previa')
 
     @api.depends('status')
     def _compute_display_name(self):
@@ -43,3 +47,18 @@ class L10nArArcaImportLine(models.TransientModel):
     def action_open_error(self):
         # Placeholder por si queremos abrir detalle
         pass
+
+    def action_toggle_import(self):
+        for line in self:
+            if line.status == 'ready':
+                line.to_import = not line.to_import
+        
+        # Reload the wizard view to reflect changes
+        # Use wizard_id to target the correct record
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'l10n_ar.arca.import.wizard',
+            'res_id': self[0].wizard_id.id,
+            'view_mode': 'form',
+            'target': 'new',
+        }

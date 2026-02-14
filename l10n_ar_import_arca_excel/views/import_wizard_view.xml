@@ -1,51 +1,201 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <record id="view_l10n_ar_import_arca_line_form" model="ir.ui.view">
+        <field name="name">l10n_ar.arca.import.line.form</field>
+        <field name="model">l10n_ar.arca.import.line</field>
+        <field name="arch" type="xml">
+            <form string="Detalle de Línea">
+                <header>
+                    <field name="status" widget="statusbar" statusbar_visible="ready,exists,error"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="document_type_name" class="oe_inline"/> <field name="number" class="oe_inline"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="date"/>
+                            <field name="point_of_sale"/>
+                            <field name="cuit"/>
+                            <field name="partner_name"/>
+                        </group>
+                        <group>
+                            <field name="amount_total"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="to_import" widget="boolean_toggle" readonly="status != 'ready'"/>
+                            <field name="move_id" invisible="not move_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Detalles y Errores">
+                            <group string="Vista Previa">
+                                <field name="preview_desc"/>
+                            </group>
+                            <group string="Detalle del Error" invisible="status != 'error'" class="alert alert-danger">
+                                <field name="error_desc" nolabel="1"/>
+                            </group>
+                            <group string="Datos JSON">
+                                <field name="invoice_values" readonly="1"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
     <record id="view_l10n_ar_import_arca_wizard_form" model="ir.ui.view">
         <field name="name">l10n_ar.arca.import.wizard.form</field>
         <field name="model">l10n_ar.arca.import.wizard</field>
         <field name="arch" type="xml">
             <form string="Importar Comprobantes ARCA">
                 <header>
-                    <button name="action_analyze" string="Analizar Excel" type="object" class="btn-primary" invisible="state != 'upload'"/>
-                    <button name="action_import" string="Confirmar Importación" type="object" class="btn-primary" invisible="state != 'review'"/>
-                    <button name="action_back" string="Volver" type="object" class="btn-secondary" invisible="state != 'review'"/>
-                    <button string="Cancelar" class="btn-secondary" special="cancel" invisible="state == 'review'"/>
                     <field name="state" widget="statusbar" statusbar_visible="upload,review,done"/>
                 </header>
                 <sheet>
                     <group invisible="state != 'upload'">
                         <group>
-                            <field name="import_type" widget="radio"/>
+                            <field name="import_type" widget="radio" invisible="not file_data or is_auto_detected"/>
                             <field name="file_data" filename="filename"/>
                             <field name="filename" invisible="1"/>
+                            <field name="is_auto_detected" invisible="1"/>
+                            <field name="pre_analysis_message" invisible="not pre_analysis_message" class="text-info"/>
                         </group>
                         <group>
-                            <field name="default_journal_id" options="{'no_create': True}"/>
+                            <field name="journal_purchase_id" options="{'no_create': True}" invisible="not file_data or import_type != 'in_invoice'" required="import_type == 'in_invoice' and file_data"/>
+                            <field name="journal_sale_id" options="{'no_create': True}" invisible="not file_data or import_type != 'out_invoice'" required="import_type == 'out_invoice' and file_data"/>
                         </group>
                     </group>
                     
                     <div invisible="state != 'review'">
-                        <div class="alert alert-info" role="alert">
-                            Revise los datos a continuación. Las líneas en <b style="color:red">Rojo</b> tienen errores bloqueantes. Las líneas en <b style="color:grey">Gris</b> ya existen. Solo se importarán las líneas en <b style="color:green">Verde (Listo)</b>.
+                        <div class="alert alert-info" role="alert" style="margin-bottom: 10px;">
+                            <field name="detected_period" readonly="1" class="fw-bold fs-5"/>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="analytic_account_id" options="{'no_create': True}" required="0"/>
+                            </group>
+                        </group>
+                        
+                        <!-- DASHBOARD SMART BUTTONS -->
+                        <div class="row my-2 justify-content-center text-center">
+                            <h5 class="text-muted"><field name="total_lines"/> Comprobantes en Archivo</h5>
+                        </div>
+                        <div class="row my-2 justify-content-center">
+                            <div class="d-flex">
+                                <!-- TODOS: Active (Solid) -->
+                                <button name="action_set_filter_all" type="object" class="oe_stat_button btn btn-secondary mx-2" icon="fa-list-ul" invisible="view_filter != 'all'">
+                                    <div class="o_stat_info">
+                                        <field name="info_all" class="o_stat_text"/>
+                                    </div>
+                                </button>
+                                <!-- TODOS: Inactive (Outline) -->
+                                <button name="action_set_filter_all" type="object" class="oe_stat_button btn btn-outline-secondary mx-2" icon="fa-list-ul" invisible="view_filter == 'all'">
+                                    <div class="o_stat_info">
+                                        <field name="info_all" class="o_stat_text"/>
+                                    </div>
+                                </button>
+
+                                <!-- LISTOS: Active (Solid) -->
+                                <button name="action_set_filter_ready" type="object" class="oe_stat_button btn btn-success mx-2" icon="fa-check" invisible="view_filter != 'ready'">
+                                    <div class="o_stat_info">
+                                        <field name="info_ready" class="o_stat_text"/>
+                                    </div>
+                                </button>
+                                <!-- LISTOS: Inactive (Outline) -->
+                                <button name="action_set_filter_ready" type="object" class="oe_stat_button btn btn-outline-success mx-2" icon="fa-check" invisible="view_filter == 'ready'">
+                                    <div class="o_stat_info">
+                                        <field name="info_ready" class="o_stat_text"/>
+                                    </div>
+                                </button>
+
+                                <!-- ERRORES: Active (Solid) -->
+                                <button name="action_set_filter_error" type="object" class="oe_stat_button btn btn-danger mx-2" icon="fa-exclamation-triangle" invisible="view_filter != 'error'">
+                                    <div class="o_stat_info">
+                                        <field name="info_error" class="o_stat_text"/>
+                                    </div>
+                                </button>
+                                <!-- ERRORES: Inactive (Outline) -->
+                                <button name="action_set_filter_error" type="object" class="oe_stat_button btn btn-outline-danger mx-2" icon="fa-exclamation-triangle" invisible="view_filter == 'error'">
+                                    <div class="o_stat_info">
+                                        <field name="info_error" class="o_stat_text"/>
+                                    </div>
+                                </button>
+
+                                <!-- EXISTENTES: Active (Solid) -->
+                                <button name="action_set_filter_exists" type="object" class="oe_stat_button btn btn-warning mx-2" icon="fa-copy" invisible="view_filter != 'exists'">
+                                    <div class="o_stat_info">
+                                        <field name="info_exists" class="o_stat_text"/>
+                                    </div>
+                                </button>
+                                <!-- EXISTENTES: Inactive (Outline) -->
+                                <button name="action_set_filter_exists" type="object" class="oe_stat_button btn btn-outline-warning mx-2" icon="fa-copy" invisible="view_filter == 'exists'">
+                                    <div class="o_stat_info">
+                                        <field name="info_exists" class="o_stat_text"/>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- MASS ACTIONS -->
+                        <div class="row mb-2">
+                             <div class="col-12 text-end">
+                                <field name="show_check_all" invisible="1"/>
+                                <field name="show_uncheck_all" invisible="1"/>
+                                <button name="action_check_all_visible" type="object" string="Marcar todos los Visibles" class="btn btn-sm btn-primary me-2" invisible="not show_check_all"/>
+                                <button name="action_uncheck_all_visible" type="object" string="Desmarcar todos los Visibles" class="btn btn-sm btn-secondary" invisible="not show_uncheck_all"/>
+                             </div>
                         </div>
                     </div>
                     
                     <notebook invisible="state != 'review'">
+                        <page string="Resumen por Contacto">
+                            <div class="mb-2 text-muted">
+                                <i class="fa fa-info-circle"/> <i>Sin selección de contactos = Se muestran <b>todos</b> los comprobantes.</i>
+                            </div>
+                            <field name="partner_filter_ids">
+                                <list editable="bottom" create="0" delete="0">
+                                    <field name="selected" widget="boolean_toggle"/>
+                                    <field name="name" string="Razón Social (Archivo)"/>
+                                    <field name="partner_id" string="Contacto (Sistema)" widget="many2one_button"/>
+                                    <field name="invoice_count" sum="Total Comprobantes"/>
+                                    <field name="amount_total" sum="Monto Total" decoration-bf="1"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Comprobantes Detectados">
-                            <field name="line_ids">
-                                <list create="0" edit="0" decoration-danger="status == 'error'" decoration-muted="status == 'exists'" decoration-success="status == 'ready'">
-                                    <field name="date"/>
-                                    <field name="document_type_name"/>
-                                    <field name="point_of_sale"/>
-                                    <field name="number"/>
-                                    <field name="cuit"/>
-                                    <field name="partner_name"/>
-                                    <field name="amount_total"/>
-                                    <field name="status" widget="badge"/>
+                            <field name="visible_line_ids">
+                                <list create="0" delete="0" decoration-danger="status == 'error'" decoration-muted="status == 'exists'" decoration-success="status == 'ready'">
+                                    <!-- Toggle Buttons for Ready status -->
+                                    <button name="action_toggle_import" type="object" icon="fa-toggle-on" class="text-success" invisible="not to_import or status != 'ready'"/>
+                                    <button name="action_toggle_import" type="object" icon="fa-toggle-off" class="text-muted" invisible="to_import"/>
+                                    <field name="to_import" column_invisible="1"/>
+                                    
+                                    <field name="date" readonly="1"/>
+                                    <field name="document_type_name" readonly="1"/>
+                                    <field name="point_of_sale" readonly="1"/>
+                                    <field name="number" readonly="1"/>
+                                    <field name="cuit" readonly="1"/>
+                                    <field name="partner_name" readonly="1"/>
+                                    <field name="amount_total" readonly="1"/>
+                                    <field name="preview_desc" readonly="1" optional="show"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="status" widget="badge" decoration-danger="status == 'error'" decoration-muted="status == 'exists'" decoration-success="status == 'ready'" readonly="1"/>
+                                    <field name="error_desc" optional="hide" readonly="1"/>
                                 </list>
                             </field>
                         </page>
                     </notebook>
+                    <footer>
+                        <field name="can_import" invisible="1"/>
+                        <button name="action_analyze" string="Analizar Excel" type="object" class="btn-primary" invisible="state != 'upload' or not file_data"/>
+                        <button name="action_import" string="Confirmar Importación" type="object" class="btn-primary" invisible="state != 'review' or not can_import"/>
+                        <button name="action_back" string="Volver" type="object" class="btn-secondary" invisible="state != 'review'"/>
+                        <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                    </footer>
                 </sheet>
             </form>
         </field>

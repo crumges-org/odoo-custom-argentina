@@ -4,20 +4,20 @@
         <field name="name">l10n_ar.arca.import.line.tree</field>
         <field name="model">l10n_ar.arca.import.line</field>
         <field name="arch" type="xml">
-            <list create="0" edit="0" decoration-danger="status == 'error'" decoration-muted="status == 'exists'" decoration-success="status == 'ready'">
-                <field name="date"/>
-                <field name="document_type_name"/>
-                <field name="point_of_sale"/>
-                <field name="number"/>
-                <field name="cuit"/>
-                <field name="partner_name"/>
-                <field name="amount_total"/>
+            <list create="0" delete="0" editable="bottom" decoration-danger="status == 'error'" decoration-muted="status == 'exists'" decoration-success="status == 'ready'">
+                <field name="to_import" widget="boolean_toggle" readonly="status != 'ready'"/>
+                <field name="date" readonly="1"/>
+                <field name="document_type_name" readonly="1"/>
+                <field name="point_of_sale" readonly="1"/>
+                <field name="number" readonly="1"/>
+                <field name="cuit" readonly="1"/>
+                <field name="partner_name" readonly="1"/>
+                <field name="amount_total" readonly="1"/>
                 <field name="currency_id" column_invisible="1"/>
-                <field name="journal_id" optional="show"/>
-                <field name="partner_id" optional="show"/>
+                <field name="journal_id" optional="show" readonly="1"/>
+                <field name="partner_id" optional="show" readonly="1"/>
                 <field name="status" widget="badge" decoration-danger="status == 'error'" decoration-muted="status == 'exists'" decoration-success="status == 'ready'" readonly="1"/>
-                <field name="error_desc" optional="hide"/>
-                <button name="action_open_error" type="object" icon="fa-info-circle" title="Ver Detalle" invisible="status != 'error'"/>
+                <field name="error_desc" optional="hide" readonly="1"/>
             </list>
         </field>
     </record>
@@ -43,6 +43,7 @@
                             <field name="currency_id" invisible="1"/>
                             <field name="journal_id" readonly="1"/>
                             <field name="partner_id" readonly="1"/>
+                            <field name="preview_desc" readonly="1"/>
                             <field name="move_id" readonly="1" options="{'no_create': True}" invisible="not move_id" decoration-danger="1" widget="many2one_button"/>
                         </group>
                     </group>

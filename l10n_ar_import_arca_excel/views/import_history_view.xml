@@ -4,7 +4,7 @@
         <field name="name">l10n_ar.arca.import.history.tree</field>
         <field name="model">l10n_ar.arca.import.history</field>
         <field name="arch" type="xml">
-            <list string="Historial de Importaciones">
+            <list string="Historial de Importaciones" create="0">
                 <field name="create_date" string="Fecha"/>
                 <field name="name"/>
                 <field name="import_type"/>
