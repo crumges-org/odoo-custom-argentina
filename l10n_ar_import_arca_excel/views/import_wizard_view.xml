@@ -20,29 +20,60 @@
                             <field name="point_of_sale"/>
                             <field name="cuit"/>
                             <field name="partner_name"/>
+                            <field name="partner_id" string="Contacto (Sistema)" options="{'no_open': True}"/>
+                            <field name="journal_id" readonly="1" options="{'no_open': True}"/>
                         </group>
                         <group>
                             <field name="amount_total"/>
                             <field name="currency_id" invisible="1"/>
                             <field name="to_import" widget="boolean_toggle" readonly="status != 'ready'"/>
-                            <field name="move_id" invisible="not move_id"/>
+                            <field name="move_id" invisible="not move_id" options="{'no_open': True}"/>
+                            <field name="preview_desc"/>
                         </group>
                     </group>
-                    <notebook>
-                        <page string="Detalles y Errores">
-                            <group string="Vista Previa">
-                                <field name="preview_desc"/>
-                            </group>
-                            <group string="Detalle del Error" invisible="status != 'error'" class="alert alert-danger">
-                                <field name="error_desc" nolabel="1"/>
-                            </group>
-                            <group string="Datos JSON">
-                                <field name="invoice_values" readonly="1"/>
-                            </group>
-                        </page>
-                    </notebook>
+                    <group string="Detalle del Error" invisible="status != 'error'" class="alert alert-danger">
+                        <field name="error_desc" nolabel="1"/>
+                    </group>
                 </sheet>
             </form>
+        </field>
+    </record>
+
+    <record id="view_l10n_ar_import_arca_partner_filter_tree" model="ir.ui.view">
+        <field name="name">l10n_ar.arca.import.partner.filter.tree</field>
+        <field name="model">l10n_ar.arca.import.partner.filter</field>
+        <field name="arch" type="xml">
+            <list editable="bottom" create="0" delete="0">
+                <field name="selected" widget="boolean_toggle"/>
+                <field name="name" string="Razón Social (Archivo)"/>
+                <field name="partner_id" string="Contacto (Sistema)" widget="many2one_button" options="{'no_open': True}"/>
+                <field name="invoice_count" sum="Total Comprobantes"/>
+                <field name="amount_total" sum="Monto Total" decoration-bf="1"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_l10n_ar_import_arca_line_tree_v2" model="ir.ui.view">
+        <field name="name">l10n_ar.arca.import.line.tree.v2</field>
+        <field name="model">l10n_ar.arca.import.line</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Líneas a Importar" create="0" delete="0" decoration-info="status == 'ready'" decoration-danger="status == 'error'" decoration-muted="status == 'exists'">
+                <field name="to_import" widget="boolean_toggle" readonly="status != 'ready'"/>
+                <field name="date" readonly="1"/>
+                <field name="document_type_name" readonly="1"/>
+                <field name="point_of_sale" readonly="1"/>
+                <field name="number" readonly="1"/>
+                <field name="partner_id" optional="show" string="Contacto (Sistema)"/>
+                <field name="cuit" optional="show"/>
+                <field name="partner_name" optional="hide"/>
+                <field name="amount_total" readonly="1"/>
+                <field name="preview_desc" readonly="1" optional="show" string="Vista Previa"/>
+                <field name="status" optional="show" widget="badge" decoration-success="status == 'ready'" decoration-danger="status == 'error'" decoration-warning="status == 'exists'"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="error_desc" optional="hide" readonly="1"/>
+            </list>
         </field>
     </record>
 
@@ -50,7 +81,7 @@
         <field name="name">l10n_ar.arca.import.wizard.form</field>
         <field name="model">l10n_ar.arca.import.wizard</field>
         <field name="arch" type="xml">
-            <form string="Importar Comprobantes ARCA">
+            <form string="Importación de Facturas de ARCA">
                 <header>
                     <field name="state" widget="statusbar" statusbar_visible="upload,review,done"/>
                 </header>
@@ -68,133 +99,235 @@
                             <field name="journal_sale_id" options="{'no_create': True}" invisible="not file_data or import_type != 'out_invoice'" required="import_type == 'out_invoice' and file_data"/>
                         </group>
                     </group>
-                    
+
                     <div invisible="state != 'review'">
-                        <div class="alert alert-info" role="alert" style="margin-bottom: 10px;">
-                            <field name="detected_period" readonly="1" class="fw-bold fs-5"/>
+
+                        <!-- ═══ HEADER ROW COMPACTO ═══ -->
+                        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+
+                            <!-- IZQUIERDA: Badge tipo + Nombre diario + POS -->
+                            <div class="d-flex align-items-center gap-2">
+                                <span invisible="import_type != 'in_invoice'"
+                                      class="badge text-bg-warning px-2 py-1">
+                                    <i class="fa fa-download me-1"/> Compras
+                                </span>
+                                <span invisible="import_type != 'out_invoice'"
+                                      class="badge text-bg-info px-2 py-1 text-white">
+                                    <i class="fa fa-upload me-1"/> Ventas
+                                </span>
+
+                                <span class="fw-bold text-dark" style="font-size: 1rem;">
+                                    <field name="journal_name_display"/>
+                                </span>
+
+                                <span invisible="not journal_pos_display or import_type != 'out_invoice'"
+                                      class="badge bg-light text-dark border px-2 py-1"
+                                      style="font-size: 0.72rem;">
+                                    Pto. Venta: <field name="journal_pos_display"/>
+                                </span>
+                            </div>
+
+                            <!-- DERECHA: Contador comprobantes compacto -->
+                            <div class="d-flex align-items-center gap-2 px-2 py-1 rounded border"
+                                 style="border-color: #28a745 !important; background-color: #f0fff4; white-space: nowrap;">
+                                <i class="fa fa-file-text-o text-success"/>
+                                <span class="fw-bold text-success" style="font-size: 1rem; font-family: monospace;">
+                                    <field name="total_lines"/>
+                                </span>
+                                <span class="text-success small fw-bold text-uppercase">comprobantes</span>
+                            </div>
                         </div>
-                        <group>
-                            <group>
-                                <field name="analytic_account_id" options="{'no_create': True}" required="0"/>
-                            </group>
-                        </group>
-                        
-                        <!-- DASHBOARD SMART BUTTONS -->
-                        <div class="row my-2 justify-content-center text-center">
-                            <h5 class="text-muted"><field name="total_lines"/> Comprobantes en Archivo</h5>
+                        <!-- ═══ FIN HEADER ROW ═══ -->
+
+                        <!-- METADATA BLOCK -->
+                        <div class="d-flex align-items-center gap-3 bg-light rounded border mb-3 px-3"
+                             style="height: 36px;">
+
+                            <!-- PERIODO -->
+                            <div class="d-flex align-items-center gap-1 border-end pe-3" style="white-space: nowrap;">
+                                <i class="fa fa-calendar-check-o text-primary" style="font-size: 0.75rem;"/>
+                                <small class="text-muted fw-bold text-uppercase" style="font-size: 0.6rem;">Período</small>
+                                <span class="fw-semibold text-dark" style="font-size: 0.78rem;">
+                                    <field name="period_start"/> → <field name="period_end"/>
+                                </span>
+                            </div>
+
+                            <!-- MES -->
+                            <div class="d-flex align-items-center gap-1 border-end pe-3" style="white-space: nowrap;">
+                                <i class="fa fa-calendar text-success" style="font-size: 0.75rem;"/>
+                                <small class="text-muted fw-bold text-uppercase" style="font-size: 0.6rem;">Mes</small>
+                                <span class="fw-semibold text-dark text-capitalize" style="font-size: 0.78rem;">
+                                    <field name="period_month_year"/>
+                                </span>
+                            </div>
+
+                            <!-- DISTRIBUCION ANALITICA -->
+                            <div class="d-flex align-items-center gap-1 border-end pe-3 flex-grow-1">
+                                <i class="fa fa-bar-chart" style="font-size: 0.75rem; flex-shrink: 0; color: #6f42c1;"/>
+                                <small class="text-muted fw-bold text-uppercase" style="font-size: 0.6rem; white-space: nowrap;">Analítica</small>
+                                <field name="analytic_precision" invisible="1"/>
+                                <div style="width: 1px; height: 1px; overflow: hidden; opacity: 0; position: absolute;">
+                                    <field name="focus_holder" default_focus="1"/>
+                                </div>
+                                <div class="o_analytic_forced_container flex-grow-1">
+                                    <field name="analytic_distribution" widget="analytic_distribution"
+                                           style="width: 100% !important;"
+                                           options="{'force_applicability': True}"
+                                           nolabel="1"/>
+                                </div>
+                            </div>
+
+                            <!-- CUENTA CONTABLE -->
+                            <div class="d-flex align-items-center gap-1 flex-grow-1">
+                                <i class="fa fa-book text-info" style="font-size: 0.75rem; flex-shrink: 0;"/>
+                                <small class="text-muted fw-bold text-uppercase" style="font-size: 0.6rem; white-space: nowrap;">Cuenta</small>
+                                <field name="account_id" options="{'no_create': True}" style="flex: 1;"/>
+                            </div>
+
                         </div>
-                        <div class="row my-2 justify-content-center">
-                            <div class="d-flex">
-                                <!-- TODOS: Active (Solid) -->
-                                <button name="action_set_filter_all" type="object" class="oe_stat_button btn btn-secondary mx-2" icon="fa-list-ul" invisible="view_filter != 'all'">
-                                    <div class="o_stat_info">
-                                        <field name="info_all" class="o_stat_text"/>
-                                    </div>
-                                </button>
-                                <!-- TODOS: Inactive (Outline) -->
-                                <button name="action_set_filter_all" type="object" class="oe_stat_button btn btn-outline-secondary mx-2" icon="fa-list-ul" invisible="view_filter == 'all'">
-                                    <div class="o_stat_info">
-                                        <field name="info_all" class="o_stat_text"/>
-                                    </div>
-                                </button>
 
-                                <!-- LISTOS: Active (Solid) -->
-                                <button name="action_set_filter_ready" type="object" class="oe_stat_button btn btn-success mx-2" icon="fa-check" invisible="view_filter != 'ready'">
-                                    <div class="o_stat_info">
-                                        <field name="info_ready" class="o_stat_text"/>
-                                    </div>
+                        <!-- DASHBOARD FILTER CARDS -->
+                        <div class="row feature_list mt-2 mb-3">
+                            <!-- TODOS -->
+                            <div class="col-3">
+                                <button name="action_set_filter_all" type="object"
+                                        class="btn btn-primary w-100 shadow-lg d-flex align-items-center justify-content-center gap-2"
+                                        style="padding: 6px 12px;"
+                                        invisible="view_filter != 'all'">
+                                    <span class="fw-bold text-white" style="font-size: 1.3rem; font-family: monospace; line-height: 1;"><field name="count_all"/></span>
+                                    <span class="text-white text-uppercase fw-bold" style="font-size: 0.7rem;"><i class="fa fa-list-ul me-1"/> Total</span>
                                 </button>
-                                <!-- LISTOS: Inactive (Outline) -->
-                                <button name="action_set_filter_ready" type="object" class="oe_stat_button btn btn-outline-success mx-2" icon="fa-check" invisible="view_filter == 'ready'">
-                                    <div class="o_stat_info">
-                                        <field name="info_ready" class="o_stat_text"/>
-                                    </div>
+                                <button name="action_set_filter_all" type="object"
+                                        class="btn bg-primary-subtle text-primary w-100 shadow-sm d-flex align-items-center justify-content-center gap-2 border"
+                                        style="padding: 6px 12px;"
+                                        invisible="view_filter == 'all'">
+                                    <span class="fw-bold" style="font-size: 1.3rem; font-family: monospace; line-height: 1;"><field name="count_all"/></span>
+                                    <span class="text-uppercase fw-bold" style="font-size: 0.7rem;"><i class="fa fa-list-ul me-1"/> Total</span>
                                 </button>
+                            </div>
 
-                                <!-- ERRORES: Active (Solid) -->
-                                <button name="action_set_filter_error" type="object" class="oe_stat_button btn btn-danger mx-2" icon="fa-exclamation-triangle" invisible="view_filter != 'error'">
-                                    <div class="o_stat_info">
-                                        <field name="info_error" class="o_stat_text"/>
-                                    </div>
+                            <!-- LISTOS -->
+                            <div class="col-3">
+                                <button name="action_set_filter_ready" type="object"
+                                        class="btn btn-success w-100 shadow-lg d-flex align-items-center justify-content-center gap-2"
+                                        style="padding: 6px 12px;"
+                                        invisible="view_filter != 'ready'">
+                                    <span class="fw-bold text-white" style="font-size: 1.3rem; font-family: monospace; line-height: 1;"><field name="count_ready"/></span>
+                                    <span class="text-white text-uppercase fw-bold" style="font-size: 0.7rem;"><i class="fa fa-check me-1"/> Listos</span>
                                 </button>
-                                <!-- ERRORES: Inactive (Outline) -->
-                                <button name="action_set_filter_error" type="object" class="oe_stat_button btn btn-outline-danger mx-2" icon="fa-exclamation-triangle" invisible="view_filter == 'error'">
-                                    <div class="o_stat_info">
-                                        <field name="info_error" class="o_stat_text"/>
-                                    </div>
+                                <button name="action_set_filter_ready" type="object"
+                                        class="btn bg-success-subtle text-success w-100 shadow-sm d-flex align-items-center justify-content-center gap-2 border"
+                                        style="padding: 6px 12px;"
+                                        invisible="view_filter == 'ready'">
+                                    <span class="fw-bold" style="font-size: 1.3rem; font-family: monospace; line-height: 1;"><field name="count_ready"/></span>
+                                    <span class="text-uppercase fw-bold" style="font-size: 0.7rem;"><i class="fa fa-check me-1"/> Listos</span>
                                 </button>
+                            </div>
 
-                                <!-- EXISTENTES: Active (Solid) -->
-                                <button name="action_set_filter_exists" type="object" class="oe_stat_button btn btn-warning mx-2" icon="fa-copy" invisible="view_filter != 'exists'">
-                                    <div class="o_stat_info">
-                                        <field name="info_exists" class="o_stat_text"/>
-                                    </div>
+                            <!-- ERRORES -->
+                            <div class="col-3">
+                                <button name="action_set_filter_error" type="object"
+                                        class="btn btn-danger w-100 shadow-lg d-flex align-items-center justify-content-center gap-2"
+                                        style="padding: 6px 12px;"
+                                        invisible="view_filter != 'error'">
+                                    <span class="fw-bold text-white" style="font-size: 1.3rem; font-family: monospace; line-height: 1;"><field name="count_error"/></span>
+                                    <span class="text-white text-uppercase fw-bold" style="font-size: 0.7rem;"><i class="fa fa-exclamation-triangle me-1"/> Errores</span>
                                 </button>
-                                <!-- EXISTENTES: Inactive (Outline) -->
-                                <button name="action_set_filter_exists" type="object" class="oe_stat_button btn btn-outline-warning mx-2" icon="fa-copy" invisible="view_filter == 'exists'">
-                                    <div class="o_stat_info">
-                                        <field name="info_exists" class="o_stat_text"/>
-                                    </div>
+                                <button name="action_set_filter_error" type="object"
+                                        class="btn bg-danger-subtle text-danger w-100 shadow-sm d-flex align-items-center justify-content-center gap-2 border"
+                                        style="padding: 6px 12px;"
+                                        invisible="view_filter == 'error'">
+                                    <span class="fw-bold" style="font-size: 1.3rem; font-family: monospace; line-height: 1;"><field name="count_error"/></span>
+                                    <span class="text-uppercase fw-bold" style="font-size: 0.7rem;"><i class="fa fa-exclamation-triangle me-1"/> Errores</span>
+                                </button>
+                            </div>
+
+                            <!-- EXISTENTES -->
+                            <div class="col-3">
+                                <button name="action_set_filter_exists" type="object"
+                                        class="btn btn-warning w-100 shadow-lg d-flex align-items-center justify-content-center gap-2"
+                                        style="padding: 6px 12px;"
+                                        invisible="view_filter != 'exists'">
+                                    <span class="fw-bold text-white" style="font-size: 1.3rem; font-family: monospace; line-height: 1;"><field name="count_exists"/></span>
+                                    <span class="text-white text-uppercase fw-bold" style="font-size: 0.7rem;"><i class="fa fa-copy me-1"/> Existen</span>
+                                </button>
+                                <button name="action_set_filter_exists" type="object"
+                                        class="btn bg-warning-subtle text-warning w-100 shadow-sm d-flex align-items-center justify-content-center gap-2 border"
+                                        style="padding: 6px 12px;"
+                                        invisible="view_filter == 'exists'">
+                                    <span class="fw-bold" style="font-size: 1.3rem; font-family: monospace; line-height: 1;"><field name="count_exists"/></span>
+                                    <span class="text-uppercase fw-bold" style="font-size: 0.7rem;"><i class="fa fa-copy me-1"/> Existen</span>
                                 </button>
                             </div>
                         </div>
-                        
-                        <!-- MASS ACTIONS -->
-                        <div class="row mb-2">
-                             <div class="col-12 text-end">
-                                <field name="show_check_all" invisible="1"/>
-                                <field name="show_uncheck_all" invisible="1"/>
-                                <button name="action_check_all_visible" type="object" string="Marcar todos los Visibles" class="btn btn-sm btn-primary me-2" invisible="not show_check_all"/>
-                                <button name="action_uncheck_all_visible" type="object" string="Desmarcar todos los Visibles" class="btn btn-sm btn-secondary" invisible="not show_uncheck_all"/>
-                             </div>
+
+                    </div>
+
+                    <!-- PARALLEL BLOCKS LAYOUT -->
+                    <div class="row mt-4" invisible="state != 'review'">
+                        <!-- COLUMN 1: CONTACTS -->
+                        <div class="col-6">
+                            <div class="card shadow-sm">
+                                <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+                                    <h5 class="m-0 text-primary"><i class="fa fa-users me-2"/>Contactos</h5>
+                                    <div>
+                                        <field name="show_select_all_partners" invisible="1"/>
+                                        <field name="show_deselect_all_partners" invisible="1"/>
+                                        <button name="action_select_all_partners" type="object" string="Sel. Todos" class="btn btn-sm btn-info me-1" invisible="not show_select_all_partners"/>
+                                        <button name="action_deselect_all_partners" type="object" string="Desel. Todos" class="btn btn-sm btn-secondary" invisible="not show_deselect_all_partners"/>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0" style="height: 500px; overflow-y: auto;">
+                                    <field name="partner_filter_ids" nolabel="1">
+                                        <list editable="bottom" create="0" delete="0">
+                                            <field name="selected" widget="boolean_toggle"/>
+                                            <field name="name" string="Razón Social (Archivo)"/>
+                                            <field name="partner_id" string="Contacto (Sistema)" widget="many2one_avatar" options="{'no_create': True}"/>
+                                            <field name="invoice_count" string="# Compr..." optional="show"/>
+                                            <field name="amount_total" string="Total" optional="show"/>
+                                        </list>
+                                    </field>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- COLUMN 2: DOCUMENTS -->
+                        <div class="col-6">
+                            <div class="card shadow-sm">
+                                <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+                                    <h5 class="m-0 text-primary"><i class="fa fa-file-text-o me-2"/>Comprobantes</h5>
+                                    <div invisible="not has_selected_partners or has_missing_partners_selection">
+                                        <field name="show_select_all_ready" invisible="1"/>
+                                        <field name="show_deselect_all_ready" invisible="1"/>
+                                        <button name="action_select_all_visible_lines" type="object" string="Sel. Listos" class="btn btn-sm btn-success me-1" invisible="not show_select_all_ready"/>
+                                        <button name="action_deselect_all_visible_lines" type="object" string="Desel. Listos" class="btn btn-sm btn-secondary" invisible="not show_deselect_all_ready"/>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0 position-relative" style="height: 500px; overflow-y: auto;">
+                                    <div invisible="not has_selected_partners or has_missing_partners_selection">
+                                        <field name="visible_line_ids" nolabel="1" context="{'tree_view_ref': 'l10n_ar_import_arca_excel.view_l10n_ar_import_arca_line_tree_v2', 'form_view_ref': 'l10n_ar_import_arca_excel.view_l10n_ar_import_arca_line_form'}"/>
+                                    </div>
+                                    <div invisible="has_selected_partners and not has_missing_partners_selection" class="d-flex flex-column justify-content-center align-items-center h-100 text-muted">
+                                        <i class="fa fa-arrow-left fa-3x mb-3"/>
+                                        <p>Seleccione contactos de la izquierda</p>
+                                        <p invisible="not has_missing_partners_selection" class="text-warning fw-bold">
+                                            <i class="fa fa-exclamation-triangle"/> Hay contactos sin mapear.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    
-                    <notebook invisible="state != 'review'">
-                        <page string="Resumen por Contacto">
-                            <div class="mb-2 text-muted">
-                                <i class="fa fa-info-circle"/> <i>Sin selección de contactos = Se muestran <b>todos</b> los comprobantes.</i>
-                            </div>
-                            <field name="partner_filter_ids">
-                                <list editable="bottom" create="0" delete="0">
-                                    <field name="selected" widget="boolean_toggle"/>
-                                    <field name="name" string="Razón Social (Archivo)"/>
-                                    <field name="partner_id" string="Contacto (Sistema)" widget="many2one_button"/>
-                                    <field name="invoice_count" sum="Total Comprobantes"/>
-                                    <field name="amount_total" sum="Monto Total" decoration-bf="1"/>
-                                    <field name="currency_id" column_invisible="1"/>
-                                </list>
-                            </field>
-                        </page>
-                        <page string="Comprobantes Detectados">
-                            <field name="visible_line_ids">
-                                <list create="0" delete="0" decoration-danger="status == 'error'" decoration-muted="status == 'exists'" decoration-success="status == 'ready'">
-                                    <!-- Toggle Buttons for Ready status -->
-                                    <button name="action_toggle_import" type="object" icon="fa-toggle-on" class="text-success" invisible="not to_import or status != 'ready'"/>
-                                    <button name="action_toggle_import" type="object" icon="fa-toggle-off" class="text-muted" invisible="to_import"/>
-                                    <field name="to_import" column_invisible="1"/>
-                                    
-                                    <field name="date" readonly="1"/>
-                                    <field name="document_type_name" readonly="1"/>
-                                    <field name="point_of_sale" readonly="1"/>
-                                    <field name="number" readonly="1"/>
-                                    <field name="cuit" readonly="1"/>
-                                    <field name="partner_name" readonly="1"/>
-                                    <field name="amount_total" readonly="1"/>
-                                    <field name="preview_desc" readonly="1" optional="show"/>
-                                    <field name="currency_id" column_invisible="1"/>
-                                    <field name="status" widget="badge" decoration-danger="status == 'error'" decoration-muted="status == 'exists'" decoration-success="status == 'ready'" readonly="1"/>
-                                    <field name="error_desc" optional="hide" readonly="1"/>
-                                </list>
-                            </field>
-                        </page>
-                    </notebook>
+
                     <footer>
                         <field name="can_import" invisible="1"/>
+                        <field name="has_missing_partners_selection" invisible="1"/>
+                        <field name="has_selected_partners" invisible="1"/>
                         <button name="action_analyze" string="Analizar Excel" type="object" class="btn-primary" invisible="state != 'upload' or not file_data"/>
-                        <button name="action_import" string="Confirmar Importación" type="object" class="btn-primary" invisible="state != 'review' or not can_import"/>
+                        <button name="action_import" string="Confirmar Importación" type="object" class="btn-primary" invisible="state != 'review' or not can_import or has_missing_partners_selection or not has_selected_partners" default_focus="1"/>
+                        <button name="action_create_partners" string="Crear Contactos Inexistentes" type="object" class="btn-primary" invisible="state != 'review' or not has_missing_partners_selection"/>
                         <button name="action_back" string="Volver" type="object" class="btn-secondary" invisible="state != 'review'"/>
-                        <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                        <button string="Salir" class="btn-secondary" special="cancel"/>
                     </footer>
                 </sheet>
             </form>

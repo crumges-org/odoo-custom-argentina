@@ -8,9 +8,10 @@ class L10nArImportArcaPartnerFilter(models.TransientModel):
     wizard_id = fields.Many2one('l10n_ar.arca.import.wizard', string='Wizard', ondelete='cascade')
     selected = fields.Boolean(string='Seleccionar', default=False)
     
-    selected = fields.Boolean(string='Seleccionar', default=False)
+
     
     name = fields.Char(string='Razón Social (Excel)', readonly=True)
+    cuit = fields.Char(string='CUIT', readonly=True)
     partner_id = fields.Many2one('res.partner', string='Contacto Relacionado', readonly=True)
     
     invoice_count = fields.Integer(string='# Comprobantes', readonly=True)

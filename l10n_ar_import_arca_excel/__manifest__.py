@@ -1,6 +1,6 @@
 {
     'name': 'L10n Ar Import Arca Excel - Importación de Mis Comprobantes',
-    'version': '18.0.1.0.0',
+    'version': '18.0.1.7.14',
     'category': 'Accounting',
     'summary': 'Importe masivamente facturas de compra y venta desde Excel de AFIP. Automatice la carga de datos y evite errores manuales.',
     'description': """
@@ -46,12 +46,16 @@ Este módulo es mantenido por Crumges.
     'external_dependencies': {'python': ['openpyxl']},
     'data': [
         'security/ir.model.access.csv',
-        'views/import_line_view.xml',
         'views/import_history_view.xml',
         'views/import_wizard_view.xml',
         'data/menu_item.xml',
     ],
-    'images': ['static/description/banner.png'],
+    'assets': {
+        'web.assets_backend': [
+            'l10n_ar_import_arca_excel/static/src/css/arca_wizard.css',
+        ],
+    },
+    'images': ['static/description/icon.png'],
     'installable': True,
     'application': False,
     'maintainers': ['Crumges'],
