@@ -20,3 +20,9 @@ class ResCompany(models.Model):
         'Receipt show customer VAT',
         default=True
     )
+
+    @api.model
+    def _load_pos_data_fields(self, config_id):
+        params = super()._load_pos_data_fields(config_id)
+        params += ['auto_invoice', 'receipt_invoice_number', 'receipt_customer_vat']
+        return params

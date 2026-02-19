@@ -2,7 +2,8 @@
 <templates id="template" xml:space="preserve">
 
     <t t-inherit="point_of_sale.ReceiptHeader" t-inherit-mode="extension">
-        <xpath expr="//div[@t-if='props.data.company.partner_id?.[1]']" position="before">
+        <!-- Agregar nombre y dirección del POS antes del contacto de la compañía -->
+        <xpath expr="//div[hasclass('pos-receipt-contact')]" position="before">
             <div style="text-align: center; font-weight: bold; font-size: 110%; margin-bottom: 5px;">
                 <t t-esc="props.data.pos_name || ''" />
             </div>
@@ -11,10 +12,11 @@
             </div>
         </xpath>
 
+        <!-- Información fiscal de la compañía -->
         <xpath expr="//t[@t-if='props.data.company.vat']" position="after">
-            <div>Ing. Brutos: <t t-esc="this.env.services.pos.company.l10n_ar_gross_income_number || ''"/></div>
-            <div>Inicio de actividades: <t t-esc="this.env.services.pos.company.l10n_ar_afip_start_date || ''"/></div>
-            <div><t t-esc="this.env.services.pos.company.l10n_ar_afip_responsibility_type_id ? this.env.services.pos.company.l10n_ar_afip_responsibility_type_id[1] : ''"/></div>
+            <div t-if="this.env.services.pos.company.l10n_ar_gross_income_number">Ing. Brutos: <t t-esc="this.env.services.pos.company.l10n_ar_gross_income_number || ''"/></div>
+            <div t-if="this.env.services.pos.company.l10n_ar_afip_start_date">Inicio de actividades: <t t-esc="this.env.services.pos.company.l10n_ar_afip_start_date || ''"/></div>
+            <div t-if="this.env.services.pos.company.l10n_ar_afip_responsibility_type_id"><t t-esc="this.env.services.pos.company.l10n_ar_afip_responsibility_type_id[1] || ''"/></div>
             <div>
                 Dirección: <t t-esc="this.env.services.pos.company.street || ''"/>
                 <t t-if="this.env.services.pos.company.city">, <t t-esc="this.env.services.pos.company.city"/></t>
@@ -23,7 +25,8 @@
             </div>
         </xpath>
 
-        <xpath expr="//div[hasclass('cashier')]" position="replace">
+        <!-- Información del cajero y cliente -->
+         <xpath expr="//div[hasclass('cashier')]" position="replace">
             <t t-if='props.data.invoice_number and props.data.receipt_invoice_number'>
                 <div class="afip-invoice-info" style="text-align: center; margin: 8px 0;">
                     <hr style="border-top: 1px solid black;" />
@@ -131,7 +134,7 @@
             </t>
         </xpath>
 
-        <xpath expr="//div[@class='before-footer']" position="after">
+        <xpath expr="//div[hasclass('before-footer')]" position="after">
             <t t-if="props.data.l10n_ar_cae || props.data.l10n_ar_qr_code_base64">
                 <div class="afip-cae-info" style="text-align: center; margin-top: 15px; padding-top: 10px; border-top: 1px dashed black;">
                     <!-- Términos y condiciones -->
@@ -167,7 +170,7 @@
         </xpath>
 
         <!-- Eliminamos nuestra modificación anterior de la sección de impuestos para no interferir con el TOTAL nativo -->
-        <xpath expr="//div[@class='pos-receipt-taxes']" position="replace">
+        <xpath expr="//div[hasclass('pos-receipt-taxes')]" position="replace">
             <!-- No hacemos nada aquí, dejamos que Odoo muestre su TOTAL nativo -->
         </xpath>
     </t>

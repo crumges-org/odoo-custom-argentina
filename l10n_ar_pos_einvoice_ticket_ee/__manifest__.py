@@ -20,7 +20,7 @@
     ],
     
     'assets': {
-        'point_of_sale.assets_prod': [
+        'point_of_sale._assets_pos': [
             # Archivos JavaScript
             'l10n_ar_pos_einvoice_ticket_ee/static/src/js/models.js',  # Modelos principales y lógica de negocio
             

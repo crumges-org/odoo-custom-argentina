@@ -1,9 +1,12 @@
 /** @odoo-module */
 
+console.log("[DEBUG] Loading l10n_ar_pos_einvoice_ticket_ee models.js");
+
 import { PosStore } from "@point_of_sale/app/store/pos_store";
 import { PosOrder } from "@point_of_sale/app/models/pos_order";
 import { patch } from "@web/core/utils/patch";
 import { PaymentScreen } from "@point_of_sale/app/screens/payment_screen/payment_screen";
+import { onWillDestroy } from "@odoo/owl";
 
 // Patch para el PaymentScreen para establecer la facturación automática
 patch(PaymentScreen.prototype, {
@@ -27,61 +30,12 @@ patch(PaymentScreen.prototype, {
         }, 300);
 
         // Limpiamos el timer al desmontar
-        import("@odoo/owl").then(({ onWillDestroy }) => {
-            onWillDestroy(() => clearTimeout(autoInvoiceTimer));
-        });
+        onWillDestroy(() => clearTimeout(autoInvoiceTimer));
     }
 });
 
 // Patch para PosStore
 patch(PosStore.prototype, {
-    async _flush_orders(orders, options) {
-        const result = await super._flush_orders(...arguments);
-        if (Array.isArray(result)) {
-            result.forEach((order) => {
-                const current_order = this.get_order();
-                if (!current_order) return;
-
-                current_order.invoice_number = order.invoice_number || '';
-                current_order.l10n_latam_document_type_id_name = order.l10n_latam_document_type_id_name || '';
-                current_order.l10n_latam_document_type_id_code = order.l10n_latam_document_type_id_code || '';
-                current_order.l10n_latam_document_report_name = order.l10n_latam_document_report_name || '';
-                current_order.l10n_ar_cae = order.l10n_ar_cae || '';
-                current_order.l10n_ar_cae_due_date = order.l10n_ar_cae_due_date || '';
-                current_order.l10n_ar_qr_code_base64 = order.l10n_ar_qr_code_base64 || '';
-                current_order.terms_and_conditions = order.terms_and_conditions || '';
-
-                // Régimen de Transparencia Fiscal
-                if (order.iva_taxes) {
-                    current_order.iva_taxes = order.iva_taxes.map((tax, index) => {
-                        return { ...tax, id: tax.id || `iva_tax_${index}` };
-                    });
-                } else {
-                    current_order.iva_taxes = [];
-                }
-
-                if (order.other_taxes_total !== undefined) {
-                    current_order.other_taxes_total = order.other_taxes_total;
-                } else {
-                    current_order.other_taxes_total = 0;
-                }
-
-                if (order.subtotal) {
-                    current_order.subtotal = order.subtotal;
-                }
-
-                if (order.detailed_taxes) {
-                    current_order.detailed_taxes = order.detailed_taxes.map((tax, index) => {
-                        return { ...tax, id: tax.id || `tax_${index}` };
-                    });
-                } else {
-                    current_order.detailed_taxes = [];
-                }
-            });
-        }
-        return result;
-    },
-
     // Lo importante: actualizar el método add_new_order para establecer la facturación
     add_new_order() {
         const order = super.add_new_order(...arguments);
@@ -107,13 +61,13 @@ patch(PosOrder.prototype, {
 
         result.headerData = result.headerData || {};
 
-        result.headerData.pos_name = this.pos.config.name || '';
-        result.headerData.pos_street = this.pos.config.street || '';
+        result.headerData.pos_name = this.config.name || '';
+        result.headerData.pos_street = this.config.street || '';
         result.headerData.date = result.date || '';
 
-        if (this.pos && this.pos.company) {
-            result.headerData.receipt_invoice_number = this.pos.company.receipt_invoice_number || false;
-            result.receipt_invoice_number = this.pos.company.receipt_invoice_number || false;
+        if (this.company) {
+            result.headerData.receipt_invoice_number = this.company.receipt_invoice_number || false;
+            result.receipt_invoice_number = this.company.receipt_invoice_number || false;
         } else {
             result.headerData.receipt_invoice_number = false;
             result.receipt_invoice_number = false;
@@ -169,6 +123,8 @@ patch(PosOrder.prototype, {
             result.total_with_tax = 0;
         }
 
+        console.log('[DEBUG] export_for_printing this.invoice_number:', this.invoice_number);
+
         return result;
     },
 
@@ -184,16 +140,27 @@ patch(PosOrder.prototype, {
     _setupAutoInvoiceHook() {
         // Usamos un timeout para asegurar que POS esté completamente cargado
         setTimeout(() => {
-            if (this.pos && this.pos.company && this.pos.company.auto_invoice) {
+            if (this.company && this.company.auto_invoice) {
+                // Verificar que no sea un pedido finalizado (ya validado)
+                if (this.finalized) {
+                    return;
+                }
+
                 // Establecer directamente la propiedad
                 this.to_invoice = true;
+                console.log('[DEBUG] Auto-invoicing enabled for order');
 
                 // También usar el método si está disponible
                 if (typeof this.set_to_invoice === 'function') {
-                    this.set_to_invoice(true);
+                    // Evitar llamada si ya está finalizado, por seguridad extra
+                    try {
+                        this.set_to_invoice(true);
+                    } catch (e) {
+                        console.warn('[DEBUG] Error setting to_invoice:', e);
+                    }
                 }
             }
-        }, 100);
+        }, 300);
     },
 
     // También aplicar auto-facturación cuando se cambia el cliente
