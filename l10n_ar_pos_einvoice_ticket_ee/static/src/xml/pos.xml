@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+
+    <t t-inherit="point_of_sale.ReceiptHeader" t-inherit-mode="extension">
+        <xpath expr="//div[@t-if='props.data.company.partner_id?.[1]']" position="before">
+            <div style="text-align: center; font-weight: bold; font-size: 110%; margin-bottom: 5px;">
+                <t t-esc="props.data.pos_name || ''" />
+            </div>
+            <div style="text-align: center; margin-bottom: 8px;">
+                <t t-esc="props.data.pos_street || ''" />
+            </div>
+        </xpath>
+
+        <xpath expr="//t[@t-if='props.data.company.vat']" position="after">
+            <div>Ing. Brutos: <t t-esc="this.env.services.pos.company.l10n_ar_gross_income_number || ''"/></div>
+            <div>Inicio de actividades: <t t-esc="this.env.services.pos.company.l10n_ar_afip_start_date || ''"/></div>
+            <div><t t-esc="this.env.services.pos.company.l10n_ar_afip_responsibility_type_id ? this.env.services.pos.company.l10n_ar_afip_responsibility_type_id[1] : ''"/></div>
+            <div>
+                Dirección: <t t-esc="this.env.services.pos.company.street || ''"/>
+                <t t-if="this.env.services.pos.company.city">, <t t-esc="this.env.services.pos.company.city"/></t>
+                <t t-if="this.env.services.pos.company.state_id">, <t t-esc="this.env.services.pos.company.state_id[1] || ''"/></t>
+                <t t-if="this.env.services.pos.company.country_id">, <t t-esc="this.env.services.pos.company.country_id[1] || ''"/></t>
+            </div>
+        </xpath>
+
+        <xpath expr="//div[hasclass('cashier')]" position="replace">
+            <t t-if='props.data.invoice_number and props.data.receipt_invoice_number'>
+                <div class="afip-invoice-info" style="text-align: center; margin: 8px 0;">
+                    <hr style="border-top: 1px solid black;" />
+                    <div style="font-size: 120%; font-weight: bold; margin: 5px 0;">
+                        <t t-esc="props.data.l10n_latam_document_report_name || ''"/> <t t-esc="props.data.invoice_letter || ''"/> COD. <t t-esc="props.data.l10n_latam_document_type_id_code || ''"/>
+                    </div>
+                    <div style="margin: 4px 0;">N°: <t t-esc="props.data.invoice_number || ''"/></div>
+                    <div style="margin: 4px 0;">FECHA: <t t-esc="props.data.date || ''"/></div>
+                    <hr style="border-top: 1px solid black;" />
+                </div>
+            </t>
+
+            <t t-if="this.env.services.pos.get_order().partner">
+                <div style="margin: 8px 0;">
+                    <div style="font-weight: bold;">Cliente: <t t-esc="this.env.services.pos.get_order().partner.name || ''"/></div>
+                    
+                    <t t-if='props.data.invoice_number'>
+                        <div style="margin: 3px 0;">
+                            <t t-if="this.env.services.pos.get_order().partner.l10n_latam_identification_type_id &amp;&amp; this.env.services.pos.get_order().partner.l10n_latam_identification_type_id[0] != 7">
+                                <t t-esc='this.env.services.pos.get_order().partner.l10n_latam_identification_type_id[1] || ""' />:
+                            </t>
+                            <t t-if="this.env.services.pos.get_order().partner.vat">
+                                <t t-esc='this.env.services.pos.get_order().partner.vat || ""' />
+                            </t>
+                        </div>
+                        <t t-if="this.env.services.pos.get_order().partner.l10n_ar_afip_responsibility_type_id">
+                            <div style="margin: 3px 0;">Responsabilidad: <t t-esc='this.env.services.pos.get_order().partner.l10n_ar_afip_responsibility_type_id[1] || ""' /></div>
+                        </t>
+                    </t>
+
+                    <t t-if="this.env.services.pos.get_order().partner.street">
+                        <div style="margin: 3px 0;">
+                            Dirección: <t t-esc="this.env.services.pos.get_order().partner.street || ''"/>
+                            <t t-if="this.env.services.pos.get_order().partner.city">, <t t-esc="this.env.services.pos.get_order().partner.city || ''"/></t>
+                            <t t-if="this.env.services.pos.get_order().partner.state_id">, <t t-esc="this.env.services.pos.get_order().partner.state_id[1] || ''"/></t>
+                            <t t-if="this.env.services.pos.get_order().partner.country_id"> (<t t-esc="this.env.services.pos.get_order().partner.country_id[1] || ''"/>)</t>
+                        </div>
+                    </t>
+                    <div t-if="this.env.services.pos.get_order().partner.email || this.env.services.pos.get_order().partner.phone" style="margin: 3px 0;">
+                        <t t-if="this.env.services.pos.get_order().partner.email">
+                            Email: <t t-esc="this.env.services.pos.get_order().partner.email || ''"/>
+                        </t>
+                        <t t-if="this.env.services.pos.get_order().partner.phone || this.env.services.pos.get_order().partner.mobile">
+                            <t t-if="this.env.services.pos.get_order().partner.email"> | </t>
+                            Tel.: <t t-esc="this.env.services.pos.get_order().partner.phone || this.env.services.pos.get_order().partner.mobile || ''"/>
+                        </t>
+                    </div>
+                </div>
+            </t>
+
+            <div t-if="props.data.cashier" class="cashier">
+                <hr />
+                <div>Cajero: <t t-esc="props.data.cashier || ''" /></div>
+            </div>
+        </xpath>
+    </t>
+
+    <t t-inherit="point_of_sale.OrderReceipt" t-inherit-mode="extension">
+        <!-- Aquí insertamos el subtotal y los impuestos ANTES del total nativo -->
+        <xpath expr="//div[hasclass('pos-receipt-amount')]" position="before">
+            <!-- Para facturas tipo A (Responsable Inscripto): Mostramos subtotal e impuestos discriminados -->
+            <t t-if="props.data.invoice_letter == 'A' &amp;&amp; props.data.subtotal">
+                <!-- Eliminamos la línea punteada duplicada -->
+                <!-- <div style="width: 100%; max-width: 100%; margin: 10px 0px 5px 0px; border-top: 1px dashed black; overflow: hidden;"></div> -->
+                
+                <!-- Subtotal sin impuestos -->
+                <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+                    <span>Subtotal:</span>
+                    <span t-esc="props.formatCurrency(props.data.subtotal || 0)"/>
+                </div>
+                
+                <!-- Detalle de impuestos (utilizando invoice_label) -->
+                <t t-if="props.data.detailed_taxes &amp;&amp; props.data.detailed_taxes.length">
+                    <t t-foreach="props.data.detailed_taxes" t-as="tax" t-key="tax.id || tax_index">
+                        <div style="display: flex; justify-content: space-between; margin-top: 2px;">
+                            <span><t t-esc="tax.invoice_label || tax.name || ''"/></span>
+                            <span t-esc="props.formatCurrency(tax.amount || 0)"/>
+                        </div>
+                    </t>
+                </t>
+            </t>
+            
+            <!-- Régimen de Transparencia Fiscal al Consumidor (Ley 27.743) SOLO para facturas Tipo B -->
+            <t t-if="props.data.invoice_letter == 'B' &amp;&amp; props.data.iva_taxes &amp;&amp; props.data.iva_taxes.length">
+                <!-- Eliminamos la línea punteada duplicada -->
+                <!-- <div style="width: 100%; max-width: 100%; margin: 15px 0px 5px 0px; border-top: 1px dashed black; overflow: hidden;"></div> -->
+                
+                <div style="font-weight: bold; margin: 15px 0 5px 0;">Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)</div>
+                
+                <!-- Impuestos IVA -->
+                <t t-foreach="props.data.iva_taxes" t-as="iva_tax" t-key="iva_tax.alicuota || iva_index">
+                    <div style="display: flex; justify-content: space-between; margin-top: 3px;">
+                        <span>IVA contenido: <t t-esc="iva_tax.alicuota"/>%</span>
+                        <span t-esc="props.formatCurrency(iva_tax.amount || 0)"/>
+                    </div>
+                </t>
+                
+                <!-- Otros impuestos nacionales indirectos (solo si hay) -->
+                <t t-if="props.data.other_taxes_total > 0">
+                    <div style="display: flex; justify-content: space-between; margin-top: 3px;">
+                        <span>Otros impuestos nacionales indirectos:</span>
+                        <span t-esc="props.formatCurrency(props.data.other_taxes_total || 0)"/>
+                    </div>
+                </t>
+            </t>
+        </xpath>
+
+        <xpath expr="//div[@class='before-footer']" position="after">
+            <t t-if="props.data.l10n_ar_cae || props.data.l10n_ar_qr_code_base64">
+                <div class="afip-cae-info" style="text-align: center; margin-top: 15px; padding-top: 10px; border-top: 1px dashed black;">
+                    <!-- Términos y condiciones -->
+                    <t t-if="props.data.terms_and_conditions">
+                        <div style="text-align: left; font-size: 85%; margin-bottom: 15px; white-space: pre-line; line-height: 1.3;">
+                            <t t-esc="props.data.terms_and_conditions"/>
+                        </div>
+                    </t>
+                    
+                    <t t-if="props.data.l10n_ar_qr_code_base64">
+                        <div style="margin: 0 auto; width: 160px; height: 160px;">
+                            <img t-att-src="'data:image/png;base64,' + props.data.l10n_ar_qr_code_base64" style="width:100%; height:100%;" />
+                        </div>
+                        <!-- Leyenda ARCA en grande y negrita -->
+                        <div style="font-size: 180%; font-weight: bold; margin: 10px 0 2px 0; letter-spacing: 2px;">
+                            ARCA
+                        </div>
+                        <!-- Aclaración de las siglas -->
+                        <div style="font-size: 85%; margin-bottom: 12px;">
+                            <strong>Agencia de Recaudación y Control Aduanero</strong>
+                        </div>
+                    </t>
+                    <t t-if="props.data.l10n_ar_cae">
+                        <div style="font-size: 90%; margin-top: 5px;">
+                            <strong>CAE:</strong> <t t-esc="props.data.l10n_ar_cae || ''"/>
+                        </div>
+                        <div style="font-size: 90%; margin-top: 3px;">
+                            <strong>Vto. CAE:</strong> <t t-esc="props.data.l10n_ar_cae_due_date || ''"/>
+                        </div>
+                    </t>
+                </div>
+            </t>
+        </xpath>
+
+        <!-- Eliminamos nuestra modificación anterior de la sección de impuestos para no interferir con el TOTAL nativo -->
+        <xpath expr="//div[@class='pos-receipt-taxes']" position="replace">
+            <!-- No hacemos nada aquí, dejamos que Odoo muestre su TOTAL nativo -->
+        </xpath>
+    </t>
+
+</templates>
