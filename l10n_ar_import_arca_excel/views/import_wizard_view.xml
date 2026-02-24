@@ -46,9 +46,9 @@
             <tree editable="bottom" create="0" delete="0">
                 <field name="selected" widget="boolean_toggle"/>
                 <field name="name" string="Razón Social (Archivo)"/>
-                <field name="partner_id" string="Contacto (Sistema)" widget="many2one_button" options="{'no_open': True}"/>
-                <field name="invoice_count" sum="Total Comprobantes"/>
-                <field name="amount_total" sum="Monto Total" decoration-bf="1"/>
+                <field name="partner_id" string="Contacto (Sistema)" widget="many2one_avatar" options="{'no_create': True}"/>
+                <field name="invoice_count" string="# Comprobantes"/>
+                <field name="amount_total" string="Total"/>
                 <field name="currency_id" column_invisible="1"/>
             </tree>
         </field>
@@ -59,18 +59,27 @@
         <field name="model">l10n_ar.arca.import.line</field>
         <field name="priority">99</field>
         <field name="arch" type="xml">
-            <tree string="Líneas a Importar" create="0" delete="0" decoration-info="status == 'ready'" decoration-danger="status == 'error'" decoration-muted="status == 'exists'">
+            <tree string="Líneas a Importar" create="0" delete="0" 
+                decoration-warning="is_refund and status in ('ready', 'exists')" 
+                decoration-info="otros_tributos > 0 and not is_refund and status in ('ready', 'exists')" 
+                decoration-danger="status == 'error'" 
+                decoration-muted="not is_refund and status == 'exists' and otros_tributos == 0">
                 <field name="to_import" widget="boolean_toggle" readonly="status != 'ready'"/>
+                <field name="status" widget="badge" 
+                       decoration-success="status == 'exists'" 
+                       decoration-info="status == 'ready'" 
+                       decoration-danger="status == 'error'"/>
                 <field name="date" readonly="1"/>
-                <field name="document_type_name" readonly="1"/>
-                <field name="point_of_sale" readonly="1"/>
-                <field name="number" readonly="1"/>
+                <field name="document_type_name" optional="hide"/>
+                <field name="point_of_sale" optional="hide"/>
+                <field name="number" optional="hide"/>
                 <field name="partner_id" optional="show" string="Contacto (Sistema)"/>
                 <field name="cuit" optional="show"/>
                 <field name="partner_name" optional="hide"/>
-                <field name="amount_total" readonly="1"/>
+                <field name="is_refund" column_invisible="1"/>
+                <field name="otros_tributos" column_invisible="1"/>
+                <field name="amount_total" readonly="1" decoration-danger="is_refund"/>
                 <field name="preview_desc" readonly="1" optional="show" string="Vista Previa"/>
-                <field name="status" optional="show" widget="badge" decoration-success="status == 'ready'" decoration-danger="status == 'error'" decoration-warning="status == 'exists'"/>
                 <field name="currency_id" column_invisible="1"/>
                 <field name="error_desc" optional="hide" readonly="1"/>
             </tree>
@@ -97,7 +106,6 @@
                         <group>
                             <field name="journal_purchase_id" options="{'no_create': True}" invisible="not file_data or import_type != 'in_invoice'" required="import_type == 'in_invoice' and file_data"/>
                             <field name="journal_sale_id" options="{'no_create': True}" invisible="not file_data or import_type != 'out_invoice'" required="import_type == 'out_invoice' and file_data"/>
-                            <field name="view_filter" invisible="1"/>
                         </group>
                     </group>
 
@@ -185,9 +193,64 @@
                                 <field name="account_id" options="{'no_create': True}" style="flex: 1;"/>
                             </div>
 
+                            <!-- OTROS TRIBUTOS -->
+                            <div class="d-flex align-items-center gap-1 border-start ps-3 flex-grow-1" invisible="not has_otros_tributos">
+                                <i class="fa fa-percent text-danger" style="font-size: 0.75rem; flex-shrink: 0;"/>
+                                <small class="text-muted fw-bold text-uppercase" style="font-size: 0.6rem; white-space: nowrap;">Otros Tributos</small>
+                                <field name="company_id" invisible="1"/>
+                                <field name="tax_domain_type" invisible="1"/>
+                                <field name="has_otros_tributos" invisible="1"/>
+                                <field name="tax_other_tributes_id" options="{'no_create': True}" required="has_otros_tributos" domain="[('company_id', '=', company_id), ('type_tax_use', '=', tax_domain_type)]" style="flex: 1; min-width: 100px;"/>
+                            </div>
+
+                        </div>
+
+                        <!-- DYNAMIC TOTALS SUMMARY -->
+                        <div class="row mt-2 border border-2 border-danger-subtle rounded py-2 mx-0 shadow-sm bg-white align-items-center" invisible="state != 'review'">
+                            <!-- Facturas -->
+                            <div class="col d-flex flex-column border-end px-3">
+                                <div class="d-flex align-items-center gap-1">
+                                    <i class="fa fa-circle" style="font-size: 0.5rem; color: #7f5e7f;"/>
+                                    <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Facturas</small>
+                                </div>
+                                <field name="summary_facturas" class="fw-bold text-dark" style="font-size: 1.1rem;"/>
+                            </div>
+                            <!-- Notas de Crédito -->
+                            <div class="col d-flex flex-column border-end px-3">
+                                <div class="d-flex align-items-center gap-1">
+                                    <i class="fa fa-circle" style="font-size: 0.5rem; color: #dfa04c;"/>
+                                    <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Notas de Crédito</small>
+                                </div>
+                                <field name="summary_ncs" class="fw-bold text-dark" style="font-size: 1.1rem;"/>
+                            </div>
+                            <!-- IVA 21% -->
+                            <div class="col d-flex flex-column border-end px-3">
+                                <div class="d-flex align-items-center gap-1">
+                                    <i class="fa fa-circle text-info" style="font-size: 0.5rem;"/>
+                                    <small class="text-info fw-bold text-uppercase" style="font-size: 0.65rem;">IVA 21%</small>
+                                </div>
+                                <field name="summary_iva_21" class="fw-bold text-dark" style="font-size: 1.1rem;"/>
+                            </div>
+                            <!-- IVA 10.5% -->
+                            <div class="col d-flex flex-column border-end px-3">
+                                <div class="d-flex align-items-center gap-1">
+                                    <i class="fa fa-circle text-info" style="font-size: 0.5rem;"/>
+                                    <small class="text-info fw-bold text-uppercase" style="font-size: 0.65rem;">IVA 10,5%</small>
+                                </div>
+                                <field name="summary_iva_105" class="fw-bold text-dark" style="font-size: 1.1rem;"/>
+                            </div>
+                            <!-- Otros Tributos -->
+                            <div class="col d-flex flex-column px-3">
+                                <div class="d-flex align-items-center gap-1">
+                                    <i class="fa fa-circle text-danger" style="font-size: 0.5rem;"/>
+                                    <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Otros Tributos</small>
+                                </div>
+                                <field name="summary_otros_tributos" class="fw-bold text-dark" style="font-size: 1.1rem;"/>
+                            </div>
                         </div>
 
                         <!-- DASHBOARD FILTER CARDS -->
+                        <field name="view_filter" invisible="1"/>
                         <div class="row feature_list mt-2 mb-3">
                             <!-- TODOS -->
                             <div class="col-3">
@@ -286,6 +349,7 @@
                                             <field name="partner_id" string="Contacto (Sistema)" widget="many2one_avatar" options="{'no_create': True}"/>
                                             <field name="invoice_count" string="# Compr..." optional="show"/>
                                             <field name="amount_total" string="Total" optional="show"/>
+                                            <field name="currency_id" column_invisible="1"/>
                                         </tree>
                                     </field>
                                 </div>
