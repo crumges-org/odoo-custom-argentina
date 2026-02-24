@@ -138,6 +138,58 @@ class L10nArImportArcaWizard(models.TransientModel):
     focus_holder = fields.Char(string='Focus Trap')
     
     account_id = fields.Many2one('account.account', string='Cuenta Contable', domain="[('deprecated', '=', False)]")
+    tax_other_tributes_id = fields.Many2one(
+        'account.tax', string='Otros Tributos', check_company=True,
+        help="Impuesto aplicado a las filas con monto en la columna 'Otros Tributos'"
+    )
+    
+    # --- Dynamic Summary Fields ---
+    company_currency_id = fields.Many2one('res.currency', string='Company Currency', 
+                                          related='company_id.currency_id', readonly=True)
+    summary_facturas = fields.Monetary(string='Facturas', compute='_compute_summaries', currency_field='company_currency_id')
+    summary_ncs = fields.Monetary(string='Notas de Crédito', compute='_compute_summaries', currency_field='company_currency_id')
+    summary_iva_21 = fields.Monetary(string='IVA 21%', compute='_compute_summaries', currency_field='company_currency_id')
+    summary_iva_105 = fields.Monetary(string='IVA 10.5%', compute='_compute_summaries', currency_field='company_currency_id')
+    summary_otros_tributos = fields.Monetary(string='Otros Tributos', compute='_compute_summaries', currency_field='company_currency_id')
+    
+    @api.depends('visible_line_ids.to_import', 'visible_line_ids.amount_total', 'visible_line_ids.is_refund', 
+                 'visible_line_ids.iva_21_amount', 'visible_line_ids.iva_105_amount', 'visible_line_ids.otros_tributos')
+    def _compute_summaries(self):
+        for rec in self:
+            facturas = 0.0
+            ncs = 0.0
+            iva_21 = 0.0
+            iva_105 = 0.0
+            otros_tributos = 0.0
+            
+            for line in rec.visible_line_ids.filtered('to_import'):
+                if line.is_refund:
+                    ncs += line.amount_total
+                else:
+                    facturas += line.amount_total
+                
+                iva_21 += line.iva_21_amount
+                iva_105 += line.iva_105_amount
+                otros_tributos += line.otros_tributos
+                
+            rec.summary_facturas = facturas
+            rec.summary_ncs = ncs
+            rec.summary_iva_21 = iva_21
+            rec.summary_iva_105 = iva_105
+            rec.summary_otros_tributos = otros_tributos
+
+    tax_domain_type = fields.Char(compute='_compute_tax_domain_type')
+    has_otros_tributos = fields.Boolean(compute='_compute_has_otros_tributos')
+    
+    @api.depends('visible_line_ids.otros_tributos', 'visible_line_ids.to_import')
+    def _compute_has_otros_tributos(self):
+        for rec in self:
+            rec.has_otros_tributos = any(l.otros_tributos > 0 and l.to_import for l in rec.visible_line_ids)
+            
+    @api.depends('import_type')
+    def _compute_tax_domain_type(self):
+        for rec in self:
+            rec.tax_domain_type = 'purchase' if rec.import_type == 'in_invoice' else 'sale'
 
     info_all = fields.Char(compute='_compute_dashboard_data')
     info_ready = fields.Char(compute='_compute_dashboard_data')
@@ -684,6 +736,12 @@ class L10nArImportArcaWizard(models.TransientModel):
             number_from = row[headers.get('Número Desde', -1)]
             # number_to = row[headers.get('Número Hasta')]
 
+            # --- Detección de Nota de Crédito ---
+            is_refund_line = doc_type_name and 'Nota de Crédito' in str(doc_type_name)
+            line_move_type = self.import_type
+            if is_refund_line:
+                line_move_type = 'in_refund' if self.import_type == 'in_invoice' else 'out_refund'
+
             cuit_col = 'Nro. Doc. Emisor' if self.import_type == 'in_invoice' else 'Nro. Doc. Receptor'
             name_col = 'Denominación Emisor' if self.import_type == 'in_invoice' else 'Denominación Receptor'
 
@@ -702,6 +760,26 @@ class L10nArImportArcaWizard(models.TransientModel):
                     break
 
             amount_total = row[headers.get('Imp. Total', -1)]
+
+            # --- Otros Tributos Detection ---
+            def _parse_float_safe(val):
+                try:
+                    if isinstance(val, (int, float)):
+                        return float(val)
+                    if isinstance(val, str):
+                        return float(val.replace(',', '.'))
+                    return 0.0
+                except:
+                    return 0.0
+
+            otros_tributos_raw = row[headers.get('Otros Tributos', -1)] if headers.get('Otros Tributos') is not None else 0.0
+            otros_tributos_amount = _parse_float_safe(otros_tributos_raw)
+            
+            iva_21_raw = row[headers.get('IVA 21%', -1)] if headers.get('IVA 21%') is not None else 0.0
+            iva_21_extracted_amount = _parse_float_safe(iva_21_raw)
+            
+            iva_105_raw = row[headers.get('IVA 10,5%', -1)] if headers.get('IVA 10,5%') is not None else 0.0
+            iva_105_extracted_amount = _parse_float_safe(iva_105_raw)
 
             # --- VALIDACIONES Y RESOLUCIONES ---
             status = 'ready'
@@ -822,7 +900,7 @@ class L10nArImportArcaWizard(models.TransientModel):
                     # Search by partner + doc type (stored fields)
                     domain = [
                         ('company_id', '=', self.company_id.id),
-                        ('move_type', '=', self.import_type),
+                        ('move_type', '=', line_move_type),
                         ('partner_id', 'in', target_partners.ids),
                         ('l10n_latam_document_type_id', '=', doc_type.id),
                     ]
@@ -834,7 +912,7 @@ class L10nArImportArcaWizard(models.TransientModel):
                 if not move:
                     domain_broad = [
                         ('company_id', '=', self.company_id.id),
-                        ('move_type', '=', self.import_type),
+                        ('move_type', '=', line_move_type),
                         ('l10n_latam_document_type_id', '=', doc_type.id),
                         # Rely on Python filtering for the number
                     ]
@@ -1003,7 +1081,7 @@ class L10nArImportArcaWizard(models.TransientModel):
             # Construct JSON for creation
             invoice_vals = {
                 'ref': f"{doc_type_name} {pos}-{number_from}",
-                'move_type': self.import_type,
+                'move_type': line_move_type,
                 'invoice_date': date.strftime('%Y-%m-%d') if date else False,
                 # Will need creation logic if False
                 'partner_id': partner.id if partner else False,
@@ -1061,7 +1139,11 @@ class L10nArImportArcaWizard(models.TransientModel):
                 'invoice_values': json.dumps(invoice_vals),
                 'move_id': move.id if move else False,
                 'to_import': True if status == 'ready' else False,
-                'preview_desc': preview_str
+                'preview_desc': preview_str,
+                'is_refund': is_refund_line,
+                'otros_tributos': otros_tributos_amount,
+                'iva_21_amount': iva_21_extracted_amount,
+                'iva_105_amount': iva_105_extracted_amount
             })
 
             # --- Partner Filter Aggregation ---
@@ -1175,7 +1257,50 @@ class L10nArImportArcaWizard(models.TransientModel):
                         if len(cmd) == 3 and isinstance(cmd[2], dict):
                             cmd[2]['account_id'] = self.account_id.id
 
+                # --- OTROS TRIBUTOS LOGIC ---
+                otros_tributos_tax_tags = self.env['account.account.tag']
+                if line.otros_tributos > 0 and self.tax_other_tributes_id:
+                    rep_lines = self.tax_other_tributes_id.invoice_repartition_line_ids if vals.get('move_type') in ('in_invoice', 'out_invoice') else self.tax_other_tributes_id.refund_repartition_line_ids
+                    tax_rep = rep_lines.filtered(lambda r: r.repartition_type == 'tax')
+                    tax_account_id = tax_rep[0].account_id.id if tax_rep and tax_rep[0].account_id else (self.account_id.id or False)
+                    otros_tributos_tax_tags = tax_rep[0].tag_ids if tax_rep else self.env['account.account.tag']
+                    
+                    # Fetch exempt tax (IVA No Corresponde) to avoid AFIP validation errors
+                    type_tax_use = 'purchase' if vals.get('move_type') in ('in_invoice', 'in_refund') else 'sale'
+                    
+                    suffix = 'ri_tax_vat_no_corresponde_compras' if type_tax_use == 'purchase' else 'ri_tax_vat_no_corresponde_ventas'
+                    xml_id = f"account.{self.env.company.id}_{suffix}"
+                    tax_nc = self.env.ref(xml_id, raise_if_not_found=False)
+                    
+                    if not tax_nc:
+                        tax_nc = self.env['account.tax'].search([
+                            ('company_id', '=', self.env.company.id),
+                            ('type_tax_use', '=', type_tax_use),
+                            '|', ('name', '=', 'IVA No Corresponde'), ('name', 'ilike', 'No Corresp')
+                        ], limit=1)
+                    
+                    if not vals.get('invoice_line_ids'):
+                        vals['invoice_line_ids'] = []
+                    
+                    vals['invoice_line_ids'].append((0, 0, {
+                        'name': 'Otros Tributos',
+                        'quantity': 1,
+                        'price_unit': line.otros_tributos,
+                        'account_id': tax_account_id,
+                        'tax_ids': [(6, 0, tax_nc.ids)] if tax_nc else [],
+                        'analytic_distribution': self.analytic_distribution or False,
+                    }))
+
                 move = self.env['account.move'].create(vals)
+                
+                # Append Perception Tax Grids post-creation
+                if line.otros_tributos > 0 and self.tax_other_tributes_id and otros_tributos_tax_tags:
+                    ot_line = move.invoice_line_ids.filtered(lambda l: l.name == 'Otros Tributos')
+                    if ot_line:
+                        # Append tags to respect base tags set by tax_nc
+                        ot_line.with_context(check_move_validity=False).write({
+                            'tax_tag_ids': [(4, t.id) for t in otros_tributos_tax_tags]
+                        })
 
                 # --- CHATTER & CAE LOGIC ---
                 msg_body = Markup(
@@ -1216,22 +1341,32 @@ class L10nArImportArcaWizard(models.TransientModel):
         # CLEAR FIELDS FOR NEXT BATCH
         self.analytic_distribution = False
         self.account_id = False
+        self.tax_other_tributes_id = False
+
+        if len(created_moves) > 0:
+            title = "Importación Completada"
+            message = f"Se importaron {len(created_moves)} comprobantes exitosamente."
+            type_notif = 'success'
+        else:
+            title = "Importación Finalizada"
+            message = "Ningún comprobante fue importado. Verifique si hay errores (EJ: falta Cuenta Contable)."
+            type_notif = 'warning'
 
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
-                'title': _("Importación completada"),
-                'message': _(f"Se crearon {len(created_moves)} facturas."),
-                'type': 'success',
+                'title': title,
+                'message': message,
+                'type': type_notif,
                 'sticky': False,
                 'next': {
                     'type': 'ir.actions.act_window',
                     'name': 'Importación de Facturas de ARCA',
                     'res_model': self._name,
-                    'res_id': self.id,
                     'view_mode': 'form',
                     'views': [(False, 'form')],
+                    'res_id': self.id,
                     'target': 'new',
                 }
             }
@@ -1277,6 +1412,10 @@ class L10nArImportArcaLine(models.TransientModel):
     to_import = fields.Boolean(string='Importar', default=False)
 
     preview_desc = fields.Char(string='Vista Previa')
+    is_refund = fields.Boolean(string='Es NC')
+    otros_tributos = fields.Float(string='Otros Tributos')
+    iva_21_amount = fields.Float(string='IVA 21%')
+    iva_105_amount = fields.Float(string='IVA 10.5%')
 
     def action_toggle_import(self):
         for line in self:
