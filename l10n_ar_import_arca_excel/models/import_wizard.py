@@ -142,6 +142,47 @@ class L10nArImportArcaWizard(models.TransientModel):
         'account.tax', string='Otros Tributos', check_company=True,
         help="Impuesto aplicado a las filas con monto en la columna 'Otros Tributos'"
     )
+
+    cae_status_mode = fields.Selection([
+        ('available', 'CAE Disponible / Requerido'),
+        ('not_available', 'CAE No Disponible'),
+        ('missing', 'Módulo Oculto')
+    ], compute='_compute_cae_status_mode')
+    
+    is_electronic_journal = fields.Boolean(compute='_compute_is_electronic_journal')
+
+    @api.depends('journal_sale_id', 'journal_purchase_id', 'import_type')
+    def _compute_is_electronic_journal(self):
+        for rec in self:
+            journal = rec.journal_sale_id if rec.import_type == 'out_invoice' else rec.journal_purchase_id
+            is_electronic = False
+            if journal:
+                pos_system = getattr(journal, 'l10n_ar_afip_pos_system', False)
+                if pos_system == 'WSFE':
+                    is_electronic = True
+            rec.is_electronic_journal = is_electronic
+
+    @api.depends('company_id', 'import_type')
+    def _compute_cae_status_mode(self):
+        for rec in self:
+            move_model = self.env['account.move']
+            has_enterprise = 'l10n_ar_afip_auth_mode' in move_model._fields
+            has_community = 'afip_auth_mode' in move_model._fields
+            
+            if not has_enterprise and not has_community:
+                rec.cae_status_mode = 'missing'
+                continue
+
+            if rec.import_type == 'out_invoice':
+                # Sales always require CAE if AFIP module is installed
+                rec.cae_status_mode = 'available'
+            else:
+                # Purchases use Verification Setting if Enterprise, else assumed available for Community
+                if has_enterprise and hasattr(self.env.company, 'l10n_ar_afip_verification_type'):
+                    verif_type = self.env.company.l10n_ar_afip_verification_type
+                    rec.cae_status_mode = 'not_available' if verif_type == 'not_available' else 'available'
+                else:
+                    rec.cae_status_mode = 'available'
     
     # --- Dynamic Summary Fields ---
     company_currency_id = fields.Many2one('res.currency', string='Company Currency', 
@@ -1307,17 +1348,26 @@ class L10nArImportArcaWizard(models.TransientModel):
                     _("Factura importada desde archivo ARCA: <b>%s</b>")) % (self.filename or 'Desconocido')
                 move.message_post(body=msg_body)
 
-                # Check AFIP Verification Type (if field exists and is configured)
-                # Field on res.company: l10n_ar_afip_verification_type (selection)
-                # 'not_available' means NO connection/validation needed. Anything else usually implies validation.
-                # However, user said: "Si la opción... es distinta a 'No disponible' entonces tambien transcribe el CAE"
+                # Check AFIP Verification Type logic correctly using the new computed mode
+                move_model = self.env['account.move']
+                has_enterprise = 'l10n_ar_afip_auth_mode' in move_model._fields
+                has_community = 'afip_auth_mode' in move_model._fields
 
-                if hasattr(self.env.company, 'l10n_ar_afip_verification_type'):
-                    verif_type = self.env.company.l10n_ar_afip_verification_type
-                    if verif_type != 'not_available' and line.afip_auth_code:
-                        move.write({
+                if self.cae_status_mode == 'available' and line.afip_auth_code:
+                    import datetime
+                    cae_due_date = line.date + datetime.timedelta(days=10) if line.date else False
+                    
+                    if has_enterprise:
+                        move.with_context(check_move_validity=False).write({
                             'l10n_ar_afip_auth_code': line.afip_auth_code,
+                            'l10n_ar_afip_auth_code_due': cae_due_date,
                             'l10n_ar_afip_result': 'A',  # Always A for ARCA history
+                        })
+                    elif has_community:
+                        move.with_context(check_move_validity=False).write({
+                            'afip_auth_code': line.afip_auth_code,
+                            'afip_auth_code_due': cae_due_date,
+                            'afip_result': 'A',  # Always A for ARCA history
                         })
 
                 created_moves |= move

@@ -115,35 +115,71 @@
                         <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
 
                             <!-- IZQUIERDA: Badge tipo + Nombre diario + POS -->
-                            <div class="d-flex align-items-center gap-2">
-                                <span invisible="import_type != 'in_invoice'"
-                                      class="badge text-bg-warning px-2 py-1">
-                                    <i class="fa fa-download me-1"/> Compras
-                                </span>
-                                <span invisible="import_type != 'out_invoice'"
-                                      class="badge text-bg-info px-2 py-1 text-white">
-                                    <i class="fa fa-upload me-1"/> Ventas
-                                </span>
+                            <div class="d-flex align-items-center gap-3">
+                                <!-- TIPO -->
+                                <div class="d-flex flex-column" style="margin-top: -8px;">
+                                    <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem; margin-bottom: 2px;">Tipo</small>
+                                    <span invisible="import_type != 'in_invoice'"
+                                          class="badge text-bg-warning px-2 py-1" style="font-size: 0.85rem; border-radius: 4px;">
+                                        <i class="fa fa-shopping-cart me-1"/> Compras
+                                    </span>
+                                    <span invisible="import_type != 'out_invoice'"
+                                          class="badge text-bg-info px-2 py-1 text-white" style="font-size: 0.85rem; border-radius: 4px;">
+                                        <i class="fa fa-tag me-1"/> Ventas
+                                    </span>
+                                </div>
+                                
+                                <!-- DIVIDER -->
+                                <div style="border-left: 1px solid #dee2e6; height: 35px;"/>
 
-                                <span class="fw-bold text-dark" style="font-size: 1rem;">
-                                    <field name="journal_name_display"/>
-                                </span>
-
-                                <span invisible="not journal_pos_display or import_type != 'out_invoice'"
-                                      class="badge bg-light text-dark border px-2 py-1"
-                                      style="font-size: 0.72rem;">
-                                    Pto. Venta: <field name="journal_pos_display"/>
-                                </span>
+                                <!-- DIARIO -->
+                                <div class="d-flex flex-column" style="margin-top: -8px;">
+                                    <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem; margin-bottom: 2px;">Diario</small>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fa fa-book text-muted me-1"/>
+                                        <span class="fw-bold text-dark" style="font-size: 0.95rem;">
+                                            <field name="journal_name_display"/>
+                                        </span>
+                                        <span invisible="not journal_pos_display or import_type != 'out_invoice'"
+                                              class="badge bg-light text-dark border px-2 py-1 ms-2"
+                                              style="font-size: 0.72rem;">
+                                            Pto. Venta: <field name="journal_pos_display"/>
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- DERECHA: Contador comprobantes compacto -->
-                            <div class="d-flex align-items-center gap-2 px-2 py-1 rounded border"
-                                 style="border-color: #28a745 !important; background-color: #f0fff4; white-space: nowrap;">
-                                <i class="fa fa-file-text-o text-success"/>
-                                <span class="fw-bold text-success" style="font-size: 1rem; font-family: monospace;">
-                                    <field name="total_lines"/>
-                                </span>
-                                <span class="text-success small fw-bold text-uppercase">comprobantes</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <field name="cae_status_mode" invisible="1"/>
+
+                                <!-- CAE NO DISPONIBLE -->
+                                <div invisible="cae_status_mode != 'not_available'"
+                                     class="d-flex justify-content-center align-items-center gap-2 px-2 rounded border border-danger text-danger bg-white"
+                                     style="white-space: nowrap; height: 32px;"
+                                     title='Activa la validación del CAE en "Verificar la validez de las facturas de proveedor en AFIP" en Configuración > Ajustes, si desea importar el CAE automaticamente'>
+                                    <i class="fa fa-exclamation-triangle"/>
+                                    <span class="small fw-bold text-uppercase">Cae no activado</span>
+                                </div>
+
+                                <!-- CAE DISPONIBLE / REQUERIDO -->
+                                <div invisible="cae_status_mode != 'available'"
+                                     class="d-flex justify-content-center align-items-center gap-2 px-2 rounded border border-success text-success bg-white"
+                                     style="white-space: nowrap; height: 32px;"
+                                     title="Se importará el CAE para cada comprobante. Su vencimiento se calculará automáticamente sumando 10 días a la fecha de emisión.">
+                                    <i class="fa fa-check"/>
+                                    <span class="small fw-bold text-uppercase">Cae Activado</span>
+                                </div>
+
+                                <!-- Contador -->
+                                <div class="d-flex justify-content-center align-items-center gap-2 px-3 rounded border"
+                                     style="border-color: #28a745 !important; background-color: #f0fff4; white-space: nowrap; height: 32px;">
+                                    <i class="fa fa-file-text-o text-success"/>
+                                    <span class="fw-bold text-success" style="font-size: 1rem; font-family: monospace; line-height: 1;">
+                                        <field name="total_lines"/>
+                                    </span>
+                                    <span class="text-success small fw-bold text-uppercase">comprobantes</span>
+                                </div>
                             </div>
                         </div>
                         <!-- ═══ FIN HEADER ROW ═══ -->
@@ -384,12 +420,28 @@
                         </div>
                     </div>
 
+                    <!-- ELECTRONIC JOURNAL ALERT -->
+                    <div invisible="not is_electronic_journal or state != 'review'"
+                         class="alert d-flex align-items-center mb-3 mt-3 shadow-sm border"
+                         role="alert" style="background-color: #fff3cd; border-color: #ffecb5 !important;">
+                        <i class="fa fa-exclamation-triangle fa-2x text-warning me-3"/>
+                        <div>
+                            <h6 class="alert-heading fw-bold mb-1 text-dark">Operación No Válida: Diario Electrónico</h6>
+                            <p class="mb-0 text-dark small" style="line-height: 1.4;">
+                                No se pueden importar comprobantes en un Punto de Venta Electrónico (Web Service).<br/>
+                                <i class="fa fa-pencil me-1"/> <strong>Opción 1:</strong> La carga la hace manual transcribiendo (Recomendado).<br/>
+                                <i class="fa fa-cog me-1"/> <strong>Opción 2:</strong> Modifique la configuración del diario a 'Factura en línea / Preimpreso' temporalmente.
+                            </p>
+                        </div>
+                    </div>
+
                     <footer>
+                        <field name="is_electronic_journal" invisible="1"/>
                         <field name="can_import" invisible="1"/>
                         <field name="has_missing_partners_selection" invisible="1"/>
                         <field name="has_selected_partners" invisible="1"/>
                         <button name="action_analyze" string="Analizar Excel" type="object" class="btn-primary" invisible="state != 'upload' or not file_data"/>
-                        <button name="action_import" string="Confirmar Importación" type="object" class="btn-primary" invisible="state != 'review' or not can_import or has_missing_partners_selection or not has_selected_partners" default_focus="1"/>
+                        <button name="action_import" string="Confirmar Importación" type="object" class="btn-primary" invisible="state != 'review' or not can_import or has_missing_partners_selection or not has_selected_partners or is_electronic_journal" default_focus="1"/>
                         <button name="action_create_partners" string="Crear Contactos Inexistentes" type="object" class="btn-primary" invisible="state != 'review' or not has_missing_partners_selection"/>
                         <button name="action_back" string="Volver" type="object" class="btn-secondary" invisible="state != 'review'"/>
                         <button string="Salir" class="btn-secondary" special="cancel"/>
