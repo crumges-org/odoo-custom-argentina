@@ -72,6 +72,22 @@ class PosConfig(models.Model):
     
     pos_custom_address = fields.Char(string='Dirección Ticket Compute', compute='_compute_pos_custom_address', store=False)
     pos_custom_name = fields.Char(string='Compañía Ticket Compute', compute='_compute_pos_custom_name', store=False)
+    pos_gross_income_number = fields.Char(
+        string='IIBB Ticket Compute',
+        compute='_compute_pos_fiscal_data',
+        store=False
+    )
+    pos_afip_start_date = fields.Char(
+        string='Inicio Actividades Ticket Compute',
+        compute='_compute_pos_fiscal_data',
+        store=False
+    )
+
+    @api.depends('company_id.l10n_ar_gross_income_number', 'company_id.l10n_ar_afip_start_date')
+    def _compute_pos_fiscal_data(self):
+        for config in self:
+            config.pos_gross_income_number = config.company_id.l10n_ar_gross_income_number or ''
+            config.pos_afip_start_date = str(config.company_id.l10n_ar_afip_start_date) if config.company_id.l10n_ar_afip_start_date else ''
 
     @api.depends('pos_use_other_receipt_address', 'pos_receipt_other_address', 'invoice_journal_id.l10n_ar_afip_pos_partner_id')
     def _compute_pos_custom_name(self):

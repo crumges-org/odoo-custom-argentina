@@ -24,5 +24,7 @@ class PosSession(models.Model):
             'pos_auto_partner',
             'pos_custom_address',
             'pos_custom_name',
+            'pos_gross_income_number',
+            'pos_afip_start_date',
         ])
         return result
