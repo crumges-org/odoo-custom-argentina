@@ -24,5 +24,12 @@ class ResCompany(models.Model):
     @api.model
     def _load_pos_data_fields(self, config_id):
         params = super()._load_pos_data_fields(config_id)
-        params += ['auto_invoice', 'receipt_invoice_number', 'receipt_customer_vat']
+        params += [
+            'auto_invoice', 
+            'receipt_invoice_number', 
+            'receipt_customer_vat',
+            'l10n_ar_gross_income_number',
+            'l10n_ar_afip_start_date',
+            'l10n_ar_afip_responsibility_type_id',
+        ]
         return params
