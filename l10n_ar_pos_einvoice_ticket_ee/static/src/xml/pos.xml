@@ -11,8 +11,8 @@
 
         <!-- Información fiscal de la compañía y luego de todo esto, el nombre del POS -->
         <xpath expr="//t[@t-if='props.data.company.vat']" position="after">
-            <div t-if="props.data.l10n_ar_gross_income_number">Ing. Brutos: <t t-esc="props.data.l10n_ar_gross_income_number || ''"/></div>
-            <div t-if="props.data.l10n_ar_afip_start_date">Inicio de actividades: <t t-esc="props.data.l10n_ar_afip_start_date || ''"/></div>
+            <div t-if="props.data.company.l10n_ar_gross_income_number">Ing. Brutos: <t t-esc="props.data.company.l10n_ar_gross_income_number || ''"/></div>
+            <div t-if="props.data.company.l10n_ar_afip_start_date">Inicio de actividades: <t t-esc="props.data.company.l10n_ar_afip_start_date || ''"/></div>
             <div t-if="this.env.services.pos.company.l10n_ar_afip_responsibility_type_id"><t t-esc="this.env.services.pos.company.l10n_ar_afip_responsibility_type_id[1] || ''"/></div>
             <t t-if="this.env.services.pos.config.pos_custom_address">
                 <div>
