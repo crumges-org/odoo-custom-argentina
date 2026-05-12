@@ -12,11 +12,55 @@
                         <setting id="pos_auto_invoice" string="Facturar automáticamente" help="Activa automáticamente el botón de facturar en el POS">
                             <field name="pos_auto_invoice"/>
                         </setting>
-                        <setting id="pos_receipt_invoice_number" string="Mostrar N° Factura" help="Muestra el número de factura en el ticket">
-                            <field name="pos_receipt_invoice_number"/>
+
+                        <!-- Configuración de Cliente Anónimo -->
+                        <!-- Configuración de Cliente Anónimo -->
+                        <setting id="pos_auto_partner" string="Asignar Cliente Automáticamente" help="Si AFIP/Localización autoasigna al Consumidor Final, aquí puedes desactivarlo.">
+                            <field name="pos_auto_partner"/>
                         </setting>
-                        <setting id="pos_receipt_customer_vat" string="Mostrar CUIT del cliente" help="Muestra el CUIT del cliente en el ticket">
-                            <field name="pos_receipt_customer_vat"/>
+
+                        <setting id="pos_anonymous_partner_id" string="Cliente Anónimo (Ocultar Datos)" help="Selecciona el cliente que será tratado como consumidor final anónimo. Los datos de este cliente (nombre, documento, dirección, etc.) se ocultarán en el ticket, mostrando únicamente su responsabilidad AFIP.">
+                            <field name="pos_anonymous_partner_id"/>
+                        </setting>
+                        
+                        <setting id="pos_anonymous_payment_method_ids" string="Métodos de Pago para Anónimo" help="Selecciona qué métodos de pago están permitidos cuando el usuario elige al Cliente Anónimo. Los métodos no incluidos aquí serán bloqueados en el Punto de Venta para este cliente.">
+                            <field name="pos_anonymous_payment_method_ids" widget="many2many_tags" domain="[('id', 'in', pos_payment_method_ids), ('journal_id', '!=', False)]"/>
+                        </setting>
+
+                        <setting id="pos_use_other_receipt_address" string="Usar otras direcciones" help="Si se activa, el ticket reemplazará la dirección de la compañía por otra elegida.">
+                            <field name="pos_use_other_receipt_address"/>
+                            <div class="content-group mt-2" invisible="not pos_use_other_receipt_address">
+                                <div class="row align-items-center">
+                                    <label for="pos_receipt_other_address" class="col-lg-3 o_light_label" string="Específica:"/>
+                                    <field name="pos_receipt_other_address" class="col-lg-9" required="pos_use_other_receipt_address" />
+                                </div>
+                                <div class="text-muted mt-2" invisible="pos_receipt_other_address != 'journal'">
+                                    <i>Nota: Usará el nombre y la dirección del contacto asociado al diario de facturación, reemplazando el nombre y dirección de la compañía.</i>
+                                </div>
+                                <div class="text-muted mt-2" invisible="pos_receipt_other_address != 'warehouse'">
+                                    <i>Nota: Reemplazará únicamente la dirección en el ticket por la del contacto del almacén.</i>
+                                </div>
+                            </div>
+                        </setting>
+                        
+                        <!-- Configuraciones de campos en Ticket -->
+                        <setting id="pos_receipt_customer_name" string="Mostrar Nombre de Cliente" help="Muestra el nombre del cliente en el ticket de AFIP">
+                            <field name="pos_receipt_customer_name"/>
+                        </setting>
+                        <setting id="pos_receipt_customer_document_type" string="Mostrar Tipo de Documento" help="Muestra el tipo de documento del cliente en el ticket">
+                            <field name="pos_receipt_customer_document_type"/>
+                        </setting>
+                        <setting id="pos_receipt_customer_identification" string="Mostrar Número de Identificación" help="Muestra el número de identificación del cliente">
+                            <field name="pos_receipt_customer_identification"/>
+                        </setting>
+                        <setting id="pos_receipt_customer_address" string="Mostrar Dirección" help="Muestra la dirección del cliente en el ticket">
+                            <field name="pos_receipt_customer_address"/>
+                        </setting>
+                        <setting id="pos_receipt_customer_phone" string="Mostrar Teléfono" help="Muestra el teléfono del cliente en el ticket">
+                            <field name="pos_receipt_customer_phone"/>
+                        </setting>
+                        <setting id="pos_receipt_customer_email" string="Mostrar Email" help="Muestra el correo electrónico del cliente en el ticket">
+                            <field name="pos_receipt_customer_email"/>
                         </setting>
                     </block>
                 </xpath>

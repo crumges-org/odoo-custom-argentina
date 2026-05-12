@@ -13,6 +13,7 @@
         'point_of_sale',  # Módulo base del Punto de Venta
         'l10n_ar',        # Localización Argentina
         'l10n_ar_edi',    # Factura electrónica oficial para Argentina en Odoo Enterprise
+        'l10n_ar_pos',    # Depender explícitamente para cargar después en JS
     ],
     
     'data': [

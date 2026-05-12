@@ -2,26 +2,37 @@
 <templates id="template" xml:space="preserve">
 
     <t t-inherit="point_of_sale.ReceiptHeader" t-inherit-mode="extension">
-        <!-- Agregar nombre y dirección del POS antes del contacto de la compañía -->
+        <!-- Agregar dirección del POS antes del contacto de la compañía (nativos) -->
         <xpath expr="//div[hasclass('pos-receipt-contact')]" position="before">
-            <div style="text-align: center; font-weight: bold; font-size: 110%; margin-bottom: 5px;">
-                <t t-esc="props.data.pos_name || ''" />
-            </div>
             <div style="text-align: center; margin-bottom: 8px;">
                 <t t-esc="props.data.pos_street || ''" />
             </div>
         </xpath>
 
-        <!-- Información fiscal de la compañía -->
+        <!-- Información fiscal de la compañía y luego de todo esto, el nombre del POS -->
         <xpath expr="//t[@t-if='props.data.company.vat']" position="after">
-            <div t-if="this.env.services.pos.company.l10n_ar_gross_income_number">Ing. Brutos: <t t-esc="this.env.services.pos.company.l10n_ar_gross_income_number || ''"/></div>
-            <div t-if="this.env.services.pos.company.l10n_ar_afip_start_date">Inicio de actividades: <t t-esc="this.env.services.pos.company.l10n_ar_afip_start_date || ''"/></div>
+            <div t-if="props.data.l10n_ar_gross_income_number">Ing. Brutos: <t t-esc="props.data.l10n_ar_gross_income_number || ''"/></div>
+            <div t-if="props.data.l10n_ar_afip_start_date">Inicio de actividades: <t t-esc="props.data.l10n_ar_afip_start_date || ''"/></div>
             <div t-if="this.env.services.pos.company.l10n_ar_afip_responsibility_type_id"><t t-esc="this.env.services.pos.company.l10n_ar_afip_responsibility_type_id[1] || ''"/></div>
-            <div>
-                Dirección: <t t-esc="this.env.services.pos.company.street || ''"/>
-                <t t-if="this.env.services.pos.company.city">, <t t-esc="this.env.services.pos.company.city"/></t>
-                <t t-if="this.env.services.pos.company.state_id">, <t t-esc="this.env.services.pos.company.state_id[1] || ''"/></t>
-                <t t-if="this.env.services.pos.company.country_id">, <t t-esc="this.env.services.pos.company.country_id[1] || ''"/></t>
+            <t t-if="this.env.services.pos.config.pos_custom_address">
+                <div>
+                    Dirección: <t t-esc="this.env.services.pos.config.pos_custom_address" />
+                </div>
+            </t>
+            <t t-else="">
+                <div>
+                    Dirección: <t t-esc="this.env.services.pos.company.street || ''"/>
+                    <t t-if="this.env.services.pos.company.city">, <t t-esc="this.env.services.pos.company.city"/></t>
+                    <t t-if="this.env.services.pos.company.state_id">, <t t-esc="this.env.services.pos.company.state_id[1] || ''"/></t>
+                    <t t-if="this.env.services.pos.company.country_id">, <t t-esc="this.env.services.pos.company.country_id[1] || ''"/></t>
+                </div>
+            </t>
+        </xpath>
+        
+        <!-- Nombre del POS exactamente debajo de la info de compañía (web/email) -->
+        <xpath expr="//div[@t-if='props.data.header']" position="before">
+            <div style="text-align: center; font-weight: bold; font-size: 110%; margin-top: 10px; margin-bottom: 5px;">
+                <t t-esc="props.data.pos_name || ''" />
             </div>
         </xpath>
 
@@ -39,47 +50,69 @@
                 </div>
             </t>
 
-            <t t-if="this.env.services.pos.get_order().partner">
-                <div style="margin: 8px 0;">
-                    <div style="font-weight: bold;">Cliente: <t t-esc="this.env.services.pos.get_order().partner.name || ''"/></div>
-                    
+            <t t-if="props.data.partner">
+                <div style="margin: 8px 0; text-align: center;">
+                    <!-- (CLIENTE) -->
+                    <t t-if="!props.data.partner.is_anonymous_customer">
+                        <t t-if="props.data.receipt_customer_name">
+                            <div style="font-weight: bold;"><t t-esc="props.data.partner.name || ''"/></div>
+                        </t>
+                        
+                        <t t-if='props.data.invoice_number'>
+                            <!-- (TIPO_DOCUMENTO): (NUMERO_IDENTIFICACIÓN) -->
+                            <div t-if="props.data.receipt_customer_document_type || props.data.receipt_customer_identification" style="margin: 3px 0;">
+                                <t t-if="props.data.receipt_customer_document_type">
+                                    <t t-if="props.data.partner.l10n_latam_identification_type_name">
+                                        <t t-esc='props.data.partner.l10n_latam_identification_type_name || ""' />
+                                    </t>
+                                </t>
+                                <t t-if="props.data.receipt_customer_document_type and props.data.receipt_customer_identification">
+                                    : 
+                                </t>
+                                <t t-if="props.data.receipt_customer_identification">
+                                    <t t-if="props.data.partner.vat">
+                                        <t t-esc='props.data.partner.vat || ""' />
+                                    </t>
+                                </t>
+                            </div>
+                        </t>
+                    </t>
+                        
+                    <!-- (RESPONSABILIDAD) -->
                     <t t-if='props.data.invoice_number'>
-                        <div style="margin: 3px 0;">
-                            <t t-if="this.env.services.pos.get_order().partner.l10n_latam_identification_type_id &amp;&amp; this.env.services.pos.get_order().partner.l10n_latam_identification_type_id[0] != 7">
-                                <t t-esc='this.env.services.pos.get_order().partner.l10n_latam_identification_type_id[1] || ""' />:
-                            </t>
-                            <t t-if="this.env.services.pos.get_order().partner.vat">
-                                <t t-esc='this.env.services.pos.get_order().partner.vat || ""' />
-                            </t>
-                        </div>
-                        <t t-if="this.env.services.pos.get_order().partner.l10n_ar_afip_responsibility_type_id">
-                            <div style="margin: 3px 0;">Responsabilidad: <t t-esc='this.env.services.pos.get_order().partner.l10n_ar_afip_responsibility_type_id[1] || ""' /></div>
+                        <t t-if="props.data.partner.l10n_ar_afip_responsibility_type_name">
+                            <div style="margin: 3px 0;"><t t-esc='props.data.partner.l10n_ar_afip_responsibility_type_name || ""' /></div>
                         </t>
                     </t>
 
-                    <t t-if="this.env.services.pos.get_order().partner.street">
-                        <div style="margin: 3px 0;">
-                            Dirección: <t t-esc="this.env.services.pos.get_order().partner.street || ''"/>
-                            <t t-if="this.env.services.pos.get_order().partner.city">, <t t-esc="this.env.services.pos.get_order().partner.city || ''"/></t>
-                            <t t-if="this.env.services.pos.get_order().partner.state_id">, <t t-esc="this.env.services.pos.get_order().partner.state_id[1] || ''"/></t>
-                            <t t-if="this.env.services.pos.get_order().partner.country_id"> (<t t-esc="this.env.services.pos.get_order().partner.country_id[1] || ''"/>)</t>
+                    <t t-if="!props.data.partner.is_anonymous_customer">
+                        <!-- (DIRECCIÓN) -->
+                        <t t-if="props.data.receipt_customer_address &amp;&amp; props.data.partner.street">
+                            <div style="margin: 3px 0;">
+                                <t t-esc="props.data.partner.street || ''"/>
+                                <t t-if="props.data.partner.city">, <t t-esc="props.data.partner.city || ''"/></t>
+                                <t t-if="props.data.partner.state_name">, <t t-esc="props.data.partner.state_name || ''"/></t>
+                                <t t-if="props.data.partner.country_name"> (<t t-esc="props.data.partner.country_name || ''"/>)</t>
+                            </div>
+                        </t>
+                        
+                        <!-- (EMAIL) | (TELEFONO) -->
+                        <div t-if="(props.data.receipt_customer_email &amp;&amp; props.data.partner.email) || (props.data.receipt_customer_phone &amp;&amp; (props.data.partner.phone || props.data.partner.mobile))" style="margin: 3px 0;">
+                            <t t-if="props.data.receipt_customer_email &amp;&amp; props.data.partner.email">
+                                <t t-esc="props.data.partner.email || ''"/>
+                            </t>
+                            <t t-if="props.data.receipt_customer_phone &amp;&amp; (props.data.partner.phone || props.data.partner.mobile)">
+                                <t t-if="props.data.receipt_customer_email &amp;&amp; props.data.partner.email"> | </t>
+                                <t t-esc="props.data.partner.phone || props.data.partner.mobile || ''"/>
+                            </t>
                         </div>
                     </t>
-                    <div t-if="this.env.services.pos.get_order().partner.email || this.env.services.pos.get_order().partner.phone" style="margin: 3px 0;">
-                        <t t-if="this.env.services.pos.get_order().partner.email">
-                            Email: <t t-esc="this.env.services.pos.get_order().partner.email || ''"/>
-                        </t>
-                        <t t-if="this.env.services.pos.get_order().partner.phone || this.env.services.pos.get_order().partner.mobile">
-                            <t t-if="this.env.services.pos.get_order().partner.email"> | </t>
-                            Tel.: <t t-esc="this.env.services.pos.get_order().partner.phone || this.env.services.pos.get_order().partner.mobile || ''"/>
-                        </t>
-                    </div>
                 </div>
             </t>
 
             <div t-if="props.data.cashier" class="cashier">
                 <hr />
-                <div>Cajero: <t t-esc="props.data.cashier || ''" /></div>
+                <div><t t-esc="props.data.cashier || ''" /></div>
             </div>
         </xpath>
     </t>
@@ -172,6 +205,19 @@
         <!-- Eliminamos nuestra modificación anterior de la sección de impuestos para no interferir con el TOTAL nativo -->
         <xpath expr="//div[hasclass('pos-receipt-taxes')]" position="replace">
             <!-- No hacemos nada aquí, dejamos que Odoo muestre su TOTAL nativo -->
+        </xpath>
+        
+        <!-- Ocultamos la marca de agua 'Powered by Odoo' y la fecha del ticket inferior, manteniendo el Nro de Orden -->
+        <xpath expr="//div[hasclass('pos-receipt-order-data')][p[contains(text(), 'Powered by')]]" position="replace">
+            <div class="pos-receipt-order-data" style="margin-top: 10px;">
+                <div t-esc="props.data.name" />
+            </div>
+        </xpath>
+    </t>
+
+    <t t-inherit="point_of_sale.PaymentScreenMethods" t-inherit-mode="extension">
+        <xpath expr="//t[@t-foreach='payment_methods_from_config']" position="attributes">
+            <attribute name="t-foreach">getFilteredPaymentMethods()</attribute>
         </xpath>
     </t>
 
